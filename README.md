@@ -112,3 +112,31 @@ If you are working on a project that's related to OpenCode and is using "opencod
 ---
 
 **Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
+
+---
+
+## 关于这个 fork
+
+**gougocodex** 是 [anomalyco/opencode](https://github.com/anomalyco/opencode) 的个人 fork，不是官方发行版。
+
+> This project is not built by the OpenCode team and is not affiliated with them in any way.
+
+在 opencode 之上做了以下修改：
+
+- 桌面端改造为 Codex 风格：浅色主题、320px 常驻侧栏、云朵 hero 空状态、底部 composer、不透明白色浮层；
+- 全中文界面、应用名 / 图标 / 启动页改为 `gougocodex`；
+- 模型选择弹窗重做：单列菜单 + 左侧详情卡、按 Kimi 官网定价换算的价格倍率、模型介绍、「默认 / 自定义」与「模型管理」；
+- 思考强度与上下文滑杆、自动整理阈值落盘、composer 品牌 logo；
+- 实验性的 macOS 电脑操控脚本（`packages/desktop/resources/computer-use/`）。
+
+上游更新使用 `git fetch upstream` + `git merge upstream/dev` 合入，不使用 rebase，以保留已推送的提交历史。
+
+## 许可证与归属
+
+原项目采用 **MIT License，Copyright (c) 2025 opencode**，完整许可全文见 [LICENSE](./LICENSE)。本仓库原样保留该文件，未修改其版权声明。
+
+本 fork 的修改部分：Copyright (c) 2026 gougocoffee。
+
+打包 `gougocodex.app` 时还包含 Electron、Chromium、Bun 及各 npm 依赖，各自许可证见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。分发二进制时应随附 `LICENSE` 与该文件。
+
+商标说明：MIT 不授予商标权。`gougocodex` 名称与小狗图标为本 fork 自有；`opencode` 名称、logo 与 `opencode.ai` 归原项目所有。仓库内保留的 `@opencode/*` 包名与 `opencode` CLI 名仅为技术标识。
