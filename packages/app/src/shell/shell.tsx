@@ -52,7 +52,7 @@ export default function Layout(props: ParentProps) {
     tabsAside: HTMLElement | undefined
     tabsPanel: HTMLElement | undefined
   }>({
-    tabsWidth: 240,
+    tabsWidth: 320,
     tabsMount: undefined,
     tabsAside: undefined,
     tabsPanel: undefined,
@@ -210,6 +210,7 @@ export default function Layout(props: ParentProps) {
 
   return (
     <div
+      data-slot="shell"
       class="relative bg-v2-background-bg-deep flex-1 min-h-0 min-w-0 flex flex-col select-none [&_input]:select-text [&_textarea]:select-text [&_[contenteditable]]:select-text"
       style={{
         // Mobile panels only need clearance for their outer border.
@@ -301,6 +302,7 @@ export default function Layout(props: ParentProps) {
         </Show>
         {/* Size containment collapses percentage-height descendants in WebKit. */}
         <main
+          data-slot="shell-main"
           class="flex-1 min-h-0 min-w-0 overflow-x-hidden flex flex-col items-start contain-content"
           style={{
             "padding-top": bottomTitlebar() ? "env(safe-area-inset-top, 0px)" : "0px",

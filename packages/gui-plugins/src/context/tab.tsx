@@ -143,6 +143,69 @@ export default function SessionContextTab(props: { session: MountedSession }) {
 
   const formatter = createMemo(() => createSessionContextFormatter(i18n.locale()))
 
+  // Codex's usage header: a big share, the tokens behind it, and one bar that fills as the window does.
+  const compactNumber = createMemo(
+    () =>
+      new Intl.NumberFormat(i18n.locale(), { notation: "compact", maximumFractionDigits: 1 }).format(
+        context()?.total ?? 0,
+      ),
+  )
+  const limitNumber = () =>
+    context()?.limit
+      ? new Intl.NumberFormat(i18n.locale(), { notation: "compact", maximumFractionDigits: 1 }).format(
+          context()!.limit,
+        )
+      : undefined
+
+  // The highest-priority document that sets `compaction` decides, matching the server. Unset keeps 15% free.
+  const compaction = createMemo(() => {
+    const directory = props.session.directory
+    const entries = data().location.config.list({ directory })
+
+    return entries.flatMap((entry) => (entry.type === "document" && entry.info.compaction ? [entry.info.compaction] : [])).at(-1)
+  })
+
+  const bufferPercent = createMemo(() => {
+    const buffer = compaction()?.buffer
+    if (typeof buffer === "string") {
+      const parsed = Number.parseFloat(buffer)
+      return Number.isFinite(parsed) ? Math.min(99, Math.max(1, parsed)) : 15
+    }
+    if (typeof buffer === "number" && context()?.limit) {
+      return Math.min(99, Math.max(1, Math.round((buffer / context()!.limit) * 100)))
+    }
+    return 15
+  })
+
+  // The slider speaks in "compact when the window is this full": 100 − buffer.
+  const [threshold, setThreshold] = createSignal<number | undefined>(undefined)
+  const compactAt = () => threshold() ?? 100 - bufferPercent()
+  const [savingThreshold, setSavingThreshold] = createSignal(false)
+
+  let thresholdTrack: HTMLDivElement | undefined
+
+  const saveThreshold = async (value: number) => {
+    if (savingThreshold()) return
+    setSavingThreshold(true)
+    try {
+      await props.session.server.client.experimental.config.update({
+        compaction: { buffer: `${100 - value}%` },
+      })
+    } catch (cause) {
+      console.error("[context] compaction update", cause)
+      showToast({ variant: "error", title: ctx.t("compact.saveFailed") })
+    } finally {
+      setSavingThreshold(false)
+      void data().location.config.sync({ directory: props.session.directory }).catch(() => undefined)
+    }
+  }
+
+  const thresholdPosition = (clientX: number) => {
+    if (!thresholdTrack) return 0
+    const rect = thresholdTrack.getBoundingClientRect()
+    return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+  }
+
   const cost = createMemo(() => {
     if (!props.session.id) return
     const spent = data().session.cost(props.session.id)
@@ -405,6 +468,84 @@ export default function SessionContextTab(props: { session: MountedSession }) {
       }
     >
       <div data-slot="session-usage-content" class="px-4 pt-4 pb-6 flex flex-col gap-6 md:px-6 md:pb-10 md:gap-10">
+        {/* Codex's usage header: a big share with the tokens behind it and one bar that fills as the window does. */}
+        <div class="flex flex-col gap-3">
+          <div class="flex items-baseline gap-2.5">
+            <span class="text-[28px] font-semibold leading-9 tracking-[-0.5px] text-text-strong">
+              {formatter().percent(context()?.usage ?? 0)}
+            </span>
+            <span class="text-12-regular text-text-weak">
+              {ctx.t("usage.usedOf", { used: compactNumber(), limit: limitNumber() ?? "—" })}
+            </span>
+          </div>
+          <div class="h-[10px] w-full overflow-hidden rounded-full bg-v2-background-bg-layer-03">
+            <div
+              class="h-full rounded-full transition-[width] duration-300"
+              style={{
+                width: `${Math.min(100, context()?.usage ?? 0)}%`,
+                background: "linear-gradient(90deg, #0ea5a0, #10a37f)",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* The window's compaction point, on Codex's adjustable track: drag to where a full window renews itself. */}
+        <div class="flex flex-col gap-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-12-regular text-text-weak">{ctx.t("compact.title")}</span>
+            <Show
+              when={savingThreshold()}
+              fallback={<span class="text-12-medium text-text-strong">{ctx.t("compact.at", { value: compactAt() })}</span>}
+            >
+              <Loader class="size-3.5" />
+            </Show>
+          </div>
+          <div
+            ref={thresholdTrack}
+            role="slider"
+            aria-label={ctx.t("compact.title")}
+            aria-valuemin={50}
+            aria-valuemax={95}
+            aria-valuenow={compactAt()}
+            tabIndex={0}
+            class="relative h-[16px] w-full cursor-pointer touch-none rounded-full bg-v2-background-bg-layer-03 outline-none focus-visible:outline-none"
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId)
+              setThreshold(Math.round(50 + thresholdPosition(event.clientX) * 45))
+            }}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                setThreshold(Math.round(50 + thresholdPosition(event.clientX) * 45))
+            }}
+            onPointerUp={(event) => {
+              event.currentTarget.releasePointerCapture(event.pointerId)
+              const value = compactAt()
+              setThreshold(undefined)
+              void saveThreshold(value)
+            }}
+          >
+            <div
+              class="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-full"
+              style={{
+                width: `${((compactAt() - 50) / 45) * 100}%`,
+                background: "linear-gradient(90deg, #0ea5a0, #10a37f)",
+              }}
+            />
+            <span class="pointer-events-none absolute left-[6px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-v2-icon-icon-faint" />
+            <span class="pointer-events-none absolute right-[6px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-v2-icon-icon-faint" />
+            <span
+              class="pointer-events-none absolute top-1/2 size-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,0.22),0_0_0_0.5px_rgba(0,0,0,0.06)]"
+              style={{ left: `${((compactAt() - 50) / 45) * 100}%` }}
+            />
+          </div>
+          <div class="text-12-regular text-text-weak">
+            {ctx.t("compact.description")}
+            <Show when={limitNumber()}>
+              <span class="ms-1 whitespace-nowrap">{ctx.t("compact.limitNote", { limit: limitNumber() })}</span>
+            </Show>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 @[32rem]:grid-cols-2 gap-4">
           <For each={stats}>
             {(stat) => <Show when={stat.value()}>{(value) => <Stat label={ctx.t(stat.label)} value={value()} />}</Show>}

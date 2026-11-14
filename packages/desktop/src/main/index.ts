@@ -14,6 +14,10 @@ import { registerRendererScheme } from "./windows/scheme"
 // precede ready; the window is created the moment ready fires; everything else is imported after.
 configureApplication()
 
+// 内置电脑操控服务：由主进程（已授权的 app）派生点击/输入动作，避免后台 CLI 被系统拒绝。
+// 用动态 import，不阻塞首窗显示。
+void import("./computer-use").catch(() => {})
+
 if (acquireApplicationLock()) {
   registerRendererScheme()
   // Window first, then the bundle: starting the import before ready delays ready itself, because the

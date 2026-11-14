@@ -218,14 +218,7 @@ export function SessionLocation(props: {
             aria-label={label()}
             class="relative flex h-7 min-w-0 max-w-full shrink items-center gap-2 overflow-hidden rounded-[6px] px-1.5 text-start text-[13px] font-normal leading-[var(--line-height-compact)] tracking-[-0.04px] text-v2-text-text-muted transition-colors hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:text-v2-text-text-base focus-visible:outline-none data-[expanded]:bg-v2-overlay-simple-overlay-hover data-[expanded]:text-v2-text-text-base"
           >
-            <ProjectAvatar
-              class="shrink-0"
-              aria-hidden="true"
-              fallback={projectName()}
-              src={getProjectAvatarSource(props.project?.id, props.project?.icon)}
-              variant={getProjectAvatarVariant(props.project?.icon?.color)}
-              generated={getProjectAvatarGenerated(props.project)}
-            />
+            <Icon name="comment" class="shrink-0" aria-hidden="true" />
             <bdi dir="auto" data-slot="session-location-project" class="session-location-label min-w-0 truncate">
               {projectName()}
             </bdi>

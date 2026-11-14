@@ -1,0 +1,22 @@
+#!/bin/sh
+# macos-use wrapper: 自动挑选带 pyobjc Quartz 的 Python 解释器（与调用方 PATH 无关）
+CLI="$HOME/.config/opencode/bin/macos-use.py"
+PY=""
+for candidate in "$HOME"/.workbuddy/binaries/python/versions/*/bin/python3 \
+                 /opt/homebrew/bin/python3 \
+                 /usr/local/bin/python3 \
+                 /usr/bin/python3; do
+  [ -x "$candidate" ] || continue
+  if "$candidate" -c 'import Quartz' >/dev/null 2>&1; then
+    PY="$candidate"
+    break
+  fi
+done
+if [ -z "$PY" ]; then
+  PY=$(command -v python3)
+fi
+if [ -z "$PY" ]; then
+  echo '{"ok":false,"error":"找不到 python3"}' >&2
+  exit 1
+fi
+exec "$PY" "$CLI" "$@"

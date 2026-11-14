@@ -224,10 +224,13 @@
 }
 
 [data-component="menu-v2-content"][data-slot="model-dialog-flyout"] {
-  position: fixed;
-  /* One width for every model, matching the 160px its placement assumes. */
-  width: 160px;
-  max-height: 400px;
+  /* A permanent second column beside the list. A fixed popover here was clipped
+     by the dialog container's overflow and squeezed into 160px. */
+  position: relative;
+  flex: 0 0 300px;
+  width: 300px;
+  height: 100%;
+  max-height: none;
   padding: 0;
   animation: none;
 

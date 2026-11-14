@@ -26,7 +26,7 @@ let backgroundColor: string | undefined
 
 export function windowAppearance(path: Path.Path, paths: DesktopPaths.Resolved) {
   return {
-    title: "OpenCode",
+    title: "gougocodex",
     icon: iconPath(path, paths),
     backgroundColor: backgroundColor ?? storedBackgroundColor(),
     ...platformFrame(tone(), storedZoomLevel()),
@@ -52,9 +52,10 @@ export function setBackgroundColor(color: string) {
   if (getBackgroundColor() !== color) getStore().set(BACKGROUND_COLOR_KEY, color)
   backgroundColor = color
   BrowserWindow.getAllWindows().forEach((win) => {
-    win.setBackgroundColor(color)
+    // macOS keeps its window background transparent so the sidebar's vibrancy stays visible.
+    if (process.platform === "darwin") return win.invalidateShadow()
 
-    if (process.platform === "darwin") win.invalidateShadow()
+    win.setBackgroundColor(color)
   })
 }
 

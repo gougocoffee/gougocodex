@@ -6,6 +6,7 @@ import { useDialog } from "@opencode/ui/context/dialog"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
 import { Keybind } from "@opencode/ui/keybind"
+import { Menu } from "@opencode/ui/menu"
 import { Tooltip } from "@opencode/ui/tooltip"
 
 import { useLayout } from "@/shell/state/layout"
@@ -318,7 +319,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                 sections={grouped?.sections}
                 tabFooter={grouped?.tabFooter}
                 tabLabel={grouped?.tabLabel}
-                tabs={tabsStore}
+                tabs={tabsStore.filter((tab) => tab.type !== "draft")}
                 currentTab={currentTab()}
                 onNavigate={(tab, el) => {
                   onNavigate?.()
@@ -368,12 +369,12 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                   data-titlebar-tab-action
                   data-action="vertical-tabs-home"
                   data-state={layout.route().type === "home" ? "pressed" : undefined}
-                  class="group flex h-7 w-full shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base data-[state=pressed]:text-v2-text-text-base"
+                  class="group flex h-7 w-full shrink-0 items-center gap-2 rounded-[8px] px-2 text-[13px] leading-4 text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none data-[state=pressed]:bg-v2-overlay-simple-overlay-hover"
                   onClick={toggleHome}
                   aria-label={language.t("home.title")}
                   aria-pressed={layout.route().type === "home"}
                 >
-                  <Icon name="grid-plus" class="shrink-0" />
+                  <Icon name="grid-plus" class="shrink-0 text-v2-icon-icon-muted" />
                   <span class="min-w-0 truncate">{language.t("home.title")}</span>
                   <div class="ms-auto hidden shrink-0 group-hover:block group-focus-visible:block" aria-hidden="true">
                     <Keybind keys={command.keybindParts("home.toggle")} variant="neutral" dir="ltr" />
@@ -412,7 +413,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                   type="button"
                   data-titlebar-tab-action
                   data-action="vertical-tabs-search"
-                  class="group flex h-7 w-full shrink-0 items-center gap-2 rounded-[6px] px-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base"
+                  class="group flex h-8 w-full shrink-0 items-center gap-2 rounded-[8px] px-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base"
                   onClick={() => command.trigger("sessions.search")}
                 >
                   <Icon name="magnifying-glass" class="shrink-0" />
@@ -772,7 +773,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 class="flex w-full shrink-0 gap-2"
                                 classList={{
                                   "items-start pt-2.5 pb-[3px]": homeInSidebarHeader(),
-                                  "mb-0.5 h-12 items-center": !homeInSidebarHeader(),
+                                  "mb-0.5 h-7 items-center": !homeInSidebarHeader(),
                                 }}
                                 style={{
                                   "min-height": macVerticalTabs()
@@ -797,16 +798,35 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 <SidebarToggle handoff="out" />
                               </div>
                             </Show>
-                            <div class="flex w-full shrink-0 flex-col gap-[3px]">
-                              <Show when={!homeInSidebarHeader()}>{homeButton(true)}</Show>
-                              {searchButton(true)}
+                            {/* Codex's brand row: the product name and a quiet search action on one line. */}
+                            <div class="flex h-9 w-full shrink-0 items-center gap-1 ps-2 pe-1">
+                              <button
+                                type="button"
+                                class="group flex h-7 min-w-0 items-center gap-1 rounded-[6px] px-1 text-[16px] leading-5 font-semibold tracking-[-0.01em] text-v2-text-text-base focus-visible:outline-none"
+                                onClick={toggleHome}
+                                aria-label={language.t("home.title")}
+                              >
+                                <span class="min-w-0 truncate">gougocodex</span>
+                                <Icon name="chevron-down" size="small" class="shrink-0 text-v2-icon-icon-muted" />
+                              </button>
+                              <div class="flex-1" />
+                              <IconButton
+                                type="button"
+                                variant="ghost-muted"
+                                size="small"
+                                icon={<Icon name="magnifying-glass" />}
+                                onClick={() => command.trigger("sessions.search")}
+                                aria-label={language.t("command.session.search")}
+                              />
+                            </div>
+                            <div class="flex w-full shrink-0 flex-col gap-[2px]">
                               <RecentlyClosedTabsMenu
                                 vertical
                                 onNewTab={openNewTab}
                                 keybind={command.keybindParts("tab.new")}
                               />
                             </div>
-                            <div class="h-4 w-full shrink-0" aria-hidden="true" />
+                            <div class="h-2 w-full shrink-0" aria-hidden="true" />
                             <div class="flex min-h-0 flex-1 flex-col gap-1">
                               <Switch fallback={verticalTabStrip()}>
                                 <Match when={settings.appearance.tabLayout() === "inbox"}>
@@ -824,6 +844,50 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                   <RecentSessions />
                                 </Match>
                               </Switch>
+                            </div>
+                            {/* Codex's account row: avatar and name open a short app menu. */}
+                            <div class="mt-2 flex w-full shrink-0 items-center gap-1 px-1 pb-1">
+                              <Menu placement="top-start" gutter={6}>
+                                <Menu.Trigger
+                                  as="button"
+                                  type="button"
+                                  class="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[8px] px-1.5 text-[13px] leading-4 text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none"
+                                >
+                                  <Icon
+                                    name="settings-gear"
+                                    size="small"
+                                    class="shrink-0 text-v2-icon-icon-muted"
+                                  />
+                                  <span class="min-w-0 flex-1 truncate text-start">
+                                    {language.t("sidebar.account.local")}
+                                  </span>
+                                </Menu.Trigger>
+                                <Menu.Portal>
+                                  <Menu.Content>
+                                    <Menu.Item onSelect={() => openSettings()}>
+                                      <Icon name="settings-gear" size="small" />
+                                      <span class="flex-1">{language.t("sidebar.settings")}</span>
+                                      <Keybind
+                                        keys={command.keybindParts("settings.open")}
+                                        variant="neutral"
+                                        dir="ltr"
+                                      />
+                                    </Menu.Item>
+                                    <Menu.Item
+                                      onSelect={() => platform.openExternal("https://opencode.ai/desktop-feedback")}
+                                    >
+                                      <Icon name="help" size="small" />
+                                      <span class="flex-1">{language.t("sidebar.help")}</span>
+                                    </Menu.Item>
+                                    <Menu.Separator />
+                                    <Menu.Item onSelect={() => window.close()}>
+                                      <Icon name="close" size="small" />
+                                      <span class="flex-1">{language.t("sidebar.quit")}</span>
+                                      <Keybind keys={["⌘", "Q"]} variant="neutral" dir="ltr" />
+                                    </Menu.Item>
+                                  </Menu.Content>
+                                </Menu.Portal>
+                              </Menu>
                             </div>
                             <Show when={titlebarItems.ids().length > 0}>
                               <div data-slot="vertical-tabs-footer" class="mt-2 flex w-full shrink-0 flex-col">

@@ -69,6 +69,9 @@ type PlatformBase = {
   /** Open a native file picker and return the selected paths without reading the files (desktop only) */
   openFilePathPickerDialog?(opts: OpenFilePathPickerOptions): Promise<string[] | null>
 
+  /** Create an empty folder under the user's Documents folder and return its path (desktop only) */
+  createProjectFolder?(name: string): Promise<string>
+
   /** Resolve the native source path for a desktop File. */
   getPathForFile?(file: File): string
 

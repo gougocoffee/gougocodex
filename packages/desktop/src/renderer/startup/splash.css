@@ -1,25 +1,85 @@
-[data-component="first-launch-splash"] path {
-  /* Outline paths use a normalized length so the drawing scales with the wordmark. */
-  stroke-dasharray: 1;
-  animation: first-launch-wordmark-draw 1000ms ease-out both;
+/* Startup splash: dog logo with a GPT-style light sweep. */
+
+.splash-dog {
+  --dog-faint: rgba(0, 0, 0, 0.12);
+  --dog-strong: rgba(12, 12, 12, 0.92);
+
+  position: relative;
+  width: 112px;
+  height: 112px;
 }
 
-[data-component="first-launch-splash"][data-drawing="pending"] path {
+[data-theme="dark"] .splash-dog {
+  --dog-faint: rgba(255, 255, 255, 0.14);
+  --dog-strong: rgba(245, 245, 245, 0.92);
+}
+
+.splash-dog-base,
+.splash-dog-shine {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: var(--dog-url);
+  mask-image: var(--dog-url);
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.splash-dog-base {
+  background-color: var(--dog-faint);
+}
+
+.splash-dog-shine {
+  background-image: linear-gradient(
+    115deg,
+    var(--dog-faint) 38%,
+    var(--dog-strong) 50%,
+    var(--dog-faint) 62%
+  );
+  background-size: 220% 100%;
+  background-position: 220% 0;
+}
+
+.splash-dog-shine-loop {
+  animation: splash-shine-loop 2200ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.splash-dog-shine-once {
+  animation: splash-shine-once 1400ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* First-launch: the sweep only starts once the window is visible and focused. */
+[data-component="first-launch-splash"][data-drawing="pending"] .splash-dog-shine-once {
   animation-play-state: paused;
 }
 
-@keyframes first-launch-wordmark-draw {
+@keyframes splash-shine-loop {
   from {
-    stroke-dashoffset: 1;
+    background-position: 220% 0;
   }
   to {
-    stroke-dashoffset: 0;
+    background-position: -220% 0;
+  }
+}
+
+@keyframes splash-shine-once {
+  from {
+    background-position: 220% 0;
+  }
+  to {
+    background-position: -220% 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-component="first-launch-splash"] path {
+  .splash-dog-shine-loop {
     animation: none;
-    stroke-dasharray: none;
+  }
+
+  .splash-dog-shine-once {
+    animation-duration: 1ms;
   }
 }

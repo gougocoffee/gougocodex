@@ -283,7 +283,7 @@ export function LabBrowser(props: {
   })
 
   return (
-    <SessionRouteFrame padded>
+    <SessionRouteFrame>
       <div ref={element} data-component="components-lab" class="min-h-0 flex-1" />
     </SessionRouteFrame>
   )

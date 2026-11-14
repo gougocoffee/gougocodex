@@ -28,7 +28,7 @@ import {
   type ComposerState,
   type PromptModel,
 } from "@/composer/state"
-import { appendPrompt, promptLength } from "@/composer/prompt-parts"
+import { appendPrompt, isAttachment, promptLength } from "@/composer/prompt-parts"
 import { TabStorage } from "./schema"
 import { useCurrentRoute, type LayoutRoute } from "@/shell/state/layout"
 import {
@@ -373,6 +373,46 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       if (tab.type === "draft") removeDraftPersisted(tab.draftID)
     }
 
+    // A draft nobody typed into, without attachments or context: reusing one keeps the sidebar from filling up
+    // with rows that all read as the same untouched session.
+    const untouchedDraft = async (tab: Tab) => {
+      if (tab.type !== "draft") return false
+      const composer = memory.ensure<ComposerState>(tabKey(tab), "prompt", () => createDraftComposerState(tab.draftID))
+      await composer.ready.promise
+      const prompt = composer.current()
+
+      return !prompt.some(isAttachment) && !promptLength(prompt) && !composer.context.items().length
+    }
+
+    const untouchedDrafts = async (draft: Omit<DraftTab, "type" | "draftID">, keep?: string) => {
+      const matches = await Promise.all(
+        store.map(async (tab) =>
+          tab.type === "draft" &&
+          tab.draftID !== keep &&
+          tab.server === draft.server &&
+          tab.directory === draft.directory &&
+          (await untouchedDraft(tab))
+            ? [tab]
+            : [],
+        ),
+      )
+
+      return matches.flat()
+    }
+
+    // The shown draft wins so clicking New session while it is open keeps the row the user is looking at.
+    const reusableDraft = async (draft: Omit<DraftTab, "type" | "draftID">) => {
+      const route = currentRoute()
+
+      const shown =
+        route.type === "draft" ? store.find((tab) => tab.type === "draft" && tab.draftID === route.draftID) : undefined
+
+      if (shown && shown.type === "draft" && shown.server === draft.server && shown.directory === draft.directory)
+        return (await untouchedDraft(shown)) ? shown : undefined
+
+      return (await untouchedDrafts(draft)).at(-1)
+    }
+
     const preview = createSessionPreview({
       tabs: () => store,
       onKeep: (tab): SessionTab => actions.addSessionTab(tab),
@@ -512,18 +552,33 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         prompt?: string,
         model?: PromptModel,
       ) {
-        const draftID = draft.draftID ?? uuid()
+        // Without a prompt, an untouched draft in the same directory is the new session instead of one more empty row.
+        const reusable = prompt || draft.draftID ? undefined : await reusableDraft(draft)
+        const draftID = draft.draftID ?? reusable?.draftID ?? uuid()
         const tab = { ...draft, type: "draft" as const, draftID }
+        const stale = await untouchedDrafts(draft, draftID)
+
         memory.ensure(tabKey(tab), "prompt", () => createDraftComposerState(draftID, { prompt, model }))
         await startTransition(() => {
           preview.clear()
           setStore(
             produce((tabs) => {
-              tabs.push(tab)
+              const dropped = new Set(stale.map(tabKey))
+
+              for (let index = tabs.length - 1; index >= 0; index--) {
+                const item = tabs[index]
+
+                if (item && dropped.has(tabKey(item))) tabs.splice(index, 1)
+              }
+
+              if (!tabs.some((item) => item.type === "draft" && item.draftID === draftID)) tabs.push(tab)
             }),
           )
           navigate(draftHref(draftID))
         })
+        stale.forEach(disposeTab)
+
+        if (stale.some((item) => tabKey(item) === recentKey())) setRecentKey(tabKey(tab))
 
         return tab
       },

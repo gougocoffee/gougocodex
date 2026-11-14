@@ -123,7 +123,7 @@ export function DesktopApp(props: { api: ElectronAPI; version: string }) {
               revealed={selectStartupRevealed(startup.state())}
               dispatch={startup.dispatch}
             />
-            <DesktopEffects api={props.api} />
+            <DesktopEffects api={props.api} os={platform.os} />
             <Suspense fallback={null}>
               <Show when={activeSidecar()} keyed>
                 {(server) => <MigrationStatus server={server} />}
@@ -271,10 +271,13 @@ function DesktopStartupReady(props: { dispatch: (event: StartupEvent) => void })
   return null
 }
 
-function DesktopEffects(props: { api: ElectronAPI }) {
+function DesktopEffects(props: { api: ElectronAPI; os: string | undefined }) {
   const command = useCommand()
   onCleanup(bindDesktopMenu((id) => command.trigger(id)))
   const theme = useTheme()
+
+  // The macOS window is a vibrancy panel, so the sidebar rail lets the material show while every other surface paints.
+  if (props.os === "macos") document.documentElement.dataset.vibrancy = "sidebar"
 
   createEffect(() => {
     theme.themeId()

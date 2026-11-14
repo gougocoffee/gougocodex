@@ -42,8 +42,8 @@ function ResolvedDraftRoute(props: { draft: DraftTab }) {
           <ServerProvider
             conn={conn}
             signedOut={
-              <SessionRouteFrame padded>
-                <SessionPanelFrame raised>
+              <SessionRouteFrame>
+                <SessionPanelFrame>
                   <ServerSignedOutPanel conn={conn} />
                 </SessionPanelFrame>
               </SessionRouteFrame>
@@ -65,8 +65,8 @@ function ResolvedDraftContent(props: { draft: DraftTab }) {
     <Show
       when={!isServerIncompatible(server.health)}
       fallback={
-        <SessionRouteFrame padded>
-          <SessionPanelFrame raised>
+        <SessionRouteFrame>
+          <SessionPanelFrame>
             <ServerUnavailablePanel
               reason="incompatible"
               onClose={() => {
@@ -81,8 +81,8 @@ function ResolvedDraftContent(props: { draft: DraftTab }) {
     >
       <ErrorBoundary
         fallback={(error) => (
-          <SessionRouteFrame padded>
-            <SessionPanelFrame raised>
+          <SessionRouteFrame>
+            <SessionPanelFrame>
               <ErrorPage error={error} />
             </SessionPanelFrame>
           </SessionRouteFrame>

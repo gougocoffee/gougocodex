@@ -43,7 +43,7 @@ export function composerProviderName(
       (item.integrationID ?? item.id) === provider.canonical,
   )
 
-  return direct ? `OpenCode / ${name}` : name
+  return direct ? `gougocodex / ${name}` : name
 }
 
 export function composerModelLabels(
@@ -102,4 +102,23 @@ function sharedPrefix(ids: string[]) {
 
 function native(provider: Provider) {
   return provider.id === "opencode" && (!provider.integrationID || provider.integrationID === "opencode")
+}
+
+/**
+ * Effort / reasoning tiers are rendered from their raw provider values, capitalised.
+ * Map them so a Chinese UI never shows "Xhigh" in the middle of a sentence.
+ */
+const effortLabels: Record<string, string> = {
+  default: "默认",
+  none: "无",
+  minimal: "极简",
+  low: "低",
+  medium: "中",
+  high: "高",
+  xhigh: "超高",
+  max: "最高",
+}
+
+export function effortLabel(value: string) {
+  return effortLabels[value.trim().toLowerCase()] ?? value
 }

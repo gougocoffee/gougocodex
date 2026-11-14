@@ -60,7 +60,13 @@ export function platformFrame(mode: "light" | "dark", zoom: number) {
 
   if (process.platform === "darwin") {
     frame.titleBarStyle = "hidden"
-    frame.trafficLightPosition = { x: 14, y: 14 }
+    frame.trafficLightPosition = { x: 18, y: 15 }
+    // Codex's sidebar is a vibrancy panel: the renderer keeps its canvas transparent there and paints everything else.
+    frame.vibrancy = "sidebar"
+    frame.visualEffectState = "followWindow"
+    // Vibrancy only shows through a transparent window background; the renderer paints its own canvas on top.
+    // NOTE: `transparent: true` would silently kill the vibrancy material — a transparent backgroundColor is enough.
+    frame.backgroundColor = "#00000000"
   }
 
   if (process.platform === "win32") {

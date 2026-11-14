@@ -32,11 +32,12 @@ function UnreadBadge(props: { show: boolean; ring: "base" | "deep" }) {
 // 74px from the window edge. macOS 15 and earlier end at 68px.
 const macTrafficLightsBaseWidth = 74
 
-// Native buttons stay 14pt while their centers follow renderer zoom.
+// Native buttons stay 14pt while their centers follow renderer zoom. Codex tucks the group into the window's top-left
+// corner: 18px from the start edge and 15px down, one pixel above the sidebar header's center line.
 export function macVerticalTrafficLights(zoom: number) {
-  const x = 27 * zoom - 7
+  const x = 18 * zoom
 
-  const y = 32 * zoom - 7
+  const y = 15 * zoom
 
   return { x, y, width: x + macTrafficLightsBaseWidth - 14 }
 }

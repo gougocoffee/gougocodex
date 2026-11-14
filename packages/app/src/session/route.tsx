@@ -222,8 +222,8 @@ function PendingSessionState(props: { sessionID: string }) {
 
 function SessionStatePanel(props: ParentProps) {
   return (
-    <div class="flex min-h-0 flex-1 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
-      <SessionPanelFrame raised>{props.children}</SessionPanelFrame>
+    <div class="flex min-h-0 flex-1">
+      <SessionPanelFrame>{props.children}</SessionPanelFrame>
     </div>
   )
 }
@@ -290,7 +290,7 @@ function SessionDocumentTitle(props: { title: () => string | undefined }) {
   // Keyed: <Title> reads its text inside a meta effect, which would hit a stale Show accessor once the session is deleted.
   return (
     <Show when={props.title()} keyed>
-      {(value) => <Title>{`${value} · OpenCode`}</Title>}
+      {(value) => <Title>{`${value} · gougocodex`}</Title>}
     </Show>
   )
 }

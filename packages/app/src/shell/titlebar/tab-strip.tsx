@@ -784,7 +784,7 @@ export function TitlebarTabStrip(props: {
           group={group}
           footer={footer()}
           label={label()}
-          hideAvatar={section?.hideAvatars}
+          hideAvatar={section?.hideAvatars ?? vertical()}
           active={props.currentTab === tab}
           highlightActive={props.highlightActive}
           orientation={vertical() ? "vertical" : "horizontal"}

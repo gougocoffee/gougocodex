@@ -47,6 +47,7 @@ export const api: ElectronAPI = {
   onDeepLink: (cb) => listen("DeepLinksOpened", (event) => cb({ attempt: event.attempt, urls: mutable(event.urls) })),
 
   openDirectoryPicker: (opts) => invoke("FilesOpenDirectoryPicker", { options: opts }).then(mutable),
+  createProjectFolder: (name) => invoke("FilesCreateProjectFolder", { name }),
   openFilePicker: (opts) => invoke("FilesOpenFilePicker", { options: opts }).then(mutable),
   readPickedFile: (token, path) => invoke("FilesReadPickedFile", { token, path }).then(toArrayBuffer),
   releasePickedFiles: (token) => invoke("FilesReleasePickedFiles", { token }),

@@ -1,4 +1,5 @@
 import { Popover } from "@kobalte/core/popover"
+import { effortLabel } from "@/composer/model-label"
 import {
   Component,
   ComponentProps,
@@ -31,6 +32,7 @@ import { Tooltip } from "@opencode/ui/tooltip"
 import { TextInput } from "@opencode/ui/text-input"
 import { ModelTooltip } from "./tooltip"
 import { ModelDetails } from "./details"
+import { modelCatalog, modelRatio } from "./model-descriptions"
 import { useLanguage } from "@/runtime/i18n/language"
 import { ExternalLink } from "@/runtime/platform/external-link"
 import { useData } from "@/runtime/server/current"
@@ -46,7 +48,6 @@ import {
   selectDrawerRestoreTrigger,
   selectFlyoutFollowsPointer,
   selectFlyoutOpenId,
-  selectFlyoutPosition,
   transitionDialogFlyout,
   transitionModelDrawer,
   type DialogFlyoutEffect,
@@ -202,6 +203,9 @@ const ModelList: Component<{
             >
               <div data-slot="settings-row-copy">
                 <div data-slot="settings-row-title" class="flex items-center gap-2">
+                  <span class="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-neutral-100">
+                    <ProviderModelIcon provider={item.provider} class="size-[13px] text-neutral-700" />
+                  </span>
                   <Tooltip
                     inactive={props.mobile}
                     placement="right-start"
@@ -644,6 +648,9 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
   const [query, setQuery] = createStore({ search: "", navigated: false })
   const [flyout, setFlyout] = createSignal(createDialogFlyoutState())
   const [staged, setStaged] = createStore<Record<string, string | null>>({})
+  // The permanent detail column follows the row under the pointer. The legacy
+  // flyout state machine still handles keyboard navigation as a fallback.
+  const [hoveredId, setHoveredId] = createSignal<string | undefined>()
 
   let list: SearchListHandle<ModelRow> | undefined
   let flyoutRef: HTMLDivElement | undefined
@@ -664,9 +671,16 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
     })
   })
 
-  const rows = createMemo(() =>
-    groups().flatMap((group) => group.items.map((item): ModelRow => ({ id: modelKey(item), item, group }))),
-  )
+  // "默认" lists the whole catalog, "自定义" narrows it to the user's favorites,
+  // mirroring the two tabs at the top of Codex's model menu.
+  const [tab, setTab] = createSignal<"default" | "custom">("default")
+  const rows = createMemo(() => {
+    const favorites = tab() === "custom" ? new Set(controller.favorites().map(modelKey)) : undefined
+
+    return groups()
+      .flatMap((group) => group.items.map((item): ModelRow => ({ id: modelKey(item), item, group })))
+      .filter((row) => !favorites || favorites.has(row.id))
+  })
 
   const rowItem = (id: string) => rows().find((row) => row.id === id)?.item
   const flyoutId = createMemo(() => selectFlyoutOpenId(flyout()))
@@ -676,6 +690,11 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
 
     return id ? rowItem(id) : undefined
   }
+
+  // The details panel is a permanent second column, so it falls back to the model
+  // in use (then the first row) whenever no row is hovered.
+  const detailItem = () =>
+    rowItem(hoveredId() ?? "") ?? flyoutItem() ?? rowItem(controller.current() ?? "") ?? rows()[0]?.item
 
   const variantsOf = (item: ModelItem) => Object.keys(item.variants ?? {})
   const favorite = (item: ModelItem) => controller.favorites().some((entry) => modelKey(entry) === modelKey(item))
@@ -911,7 +930,6 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
   const Row = (row: { model: ModelRow; attrs: SearchListRow }) => {
     const item = () => row.model.item
     const selected = () => controller.current() === modelKey(item())
-    const active = () => row.attrs["data-active"] !== undefined
 
     return (
       <button
@@ -923,6 +941,7 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
           // A still cursor must not take the highlight while the arrow keys scroll rows beneath it.
           if (event.movementX === 0 && event.movementY === 0) return
 
+          setHoveredId(row.model.id)
           dispatch({
             type: "row.moved",
             id: row.model.id,
@@ -941,6 +960,9 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
                 ? "flyout"
                 : "outside"
 
+          // Keep the detail on its model while the pointer travels across the
+          // gap into the panel; only leaving both columns resets it.
+          if (into === "outside") setHoveredId(undefined)
           dispatch({ type: "row.left", into, point: { x: event.clientX, y: event.clientY }, flyout: flyoutRect() })
         }}
       >
@@ -950,9 +972,13 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
           </Show>
         </span>
         <span data-slot="model-dialog-name">
+          <ProviderModelIcon provider={item().provider} modelName={item().name} class="size-4 shrink-0" />
           <span class="min-w-0 truncate">
             <SearchHighlight text={item().name} />
           </span>
+          <Show when={modelCatalog(item()).isNew}>
+            <span data-slot="model-new-badge">New</span>
+          </Show>
           {/* Favorites and Recent mix providers, so their rows name one, with its workspace when its header has one. */}
           <Show when={row.model.group.title}>
             <span class="min-w-0 shrink-[999] truncate text-v2-text-text-faint">{labels.name(item().provider)}</span>
@@ -968,22 +994,39 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
           </Show>
         </span>
         <Show when={usage(item())}>{(value) => <ModelUsageTag usage={value()} />}</Show>
-        <Show when={active()}>
-          <span data-slot="model-dialog-variant">
-            <span class="truncate capitalize">{variant(item()) ?? language.t("common.default")}</span>
-            <Icon name="chevron-right" size="small" />
-          </span>
-        </Show>
+        {/* Codex shows the relative cost at the right edge of every row, not just the active one. */}
+        <span data-slot="model-dialog-variant">
+          <span class="truncate">{modelRatio(item(), isFreeModel(item())) ?? ""}</span>
+        </span>
       </button>
     )
   }
 
   return (
-    <Dialog class="command-palette model-dialog" size="large">
+    <Dialog class="command-palette model-dialog" size="large" containerClass="model-dialog-shell">
       <div class="sr-only">
         <DialogTitle>{language.t("dialog.model.select.title")}</DialogTitle>
       </div>
+      <div data-slot="model-dialog-split">
       <DialogBody class="command-palette-body">
+        <div data-slot="model-dialog-tabs">
+          <button
+            type="button"
+            data-slot="model-dialog-tab"
+            data-active={tab() === "default" ? "" : undefined}
+            onClick={() => setTab("default")}
+          >
+            默认
+          </button>
+          <button
+            type="button"
+            data-slot="model-dialog-tab"
+            data-active={tab() === "custom" ? "" : undefined}
+            onClick={() => setTab("custom")}
+          >
+            自定义
+          </button>
+        </div>
         {/* Scrolling moves the flyout's row away without a pointer event, which would leave it detached. */}
         <div
           class="contents"
@@ -1053,42 +1096,114 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
         <Show when={chatgptPlan()}>
           <ChatgptPlanFooter />
         </Show>
+        <div data-slot="model-dialog-footer">
+          <button
+            type="button"
+            onClick={() => {
+              void manage()
+            }}
+          >
+            <Icon name="settings-gear" size="small" />
+            <span>模型管理</span>
+          </button>
+        </div>
       </DialogBody>
-      <Show when={flyoutItem()}>
+      <Show when={detailItem()}>
         {(item) => (
-          // Inside the dialog content, so clicks here are not outside clicks that dismiss the dialog.
           <div
             ref={(element) => (flyoutRef = element)}
             data-component="menu-v2-content"
             data-slot="model-dialog-flyout"
-            style={{
-              left: `${selectFlyoutPosition(flyout())?.left ?? 0}px`,
-              top: `${selectFlyoutPosition(flyout())?.top ?? 0}px`,
-            }}
             onMouseEnter={() => dispatch({ type: "flyout.entered" })}
           >
             <MenuScroll>
-              {/* A model without variants still lists Default, its only option. */}
-              <For each={[undefined, ...variantsOf(item())]}>
-                {(value) => (
-                  <div
-                    data-component="menu-v2-item"
-                    role="menuitemradio"
-                    aria-checked={variant(item()) === value}
-                    data-checked={variant(item()) === value ? "" : undefined}
-                    onMouseEnter={(event) => event.currentTarget.setAttribute("data-highlighted", "")}
-                    onMouseLeave={(event) => event.currentTarget.removeAttribute("data-highlighted")}
-                    onClick={() => choose(item(), value ?? null)}
-                  >
-                    <span data-slot="menu-v2-item-content" class="capitalize">
-                      {value ?? language.t("common.default")}
-                    </span>
-                    <span data-slot="menu-v2-item-indicator" data-checked={variant(item()) === value ? "" : undefined}>
-                      <Icon name="check" size="small" />
-                    </span>
+              {(() => {
+                // Codex renders reasoning effort as a track with a draggable knob rather than
+                // a list of radio rows. Default is the leftmost stop and slots into the same
+                // index space, so every tier is reachable by a single click on the track.
+                const levels = () => [undefined, ...variantsOf(item())] as (string | undefined)[]
+                const index = () => Math.max(0, levels().indexOf(variant(item())))
+                const ratio = () => (levels().length <= 1 ? 0 : index() / (levels().length - 1))
+                const label = () => {
+                  const value = variant(item())
+
+                  return value ? effortLabel(value) : language.t("common.default")
+                }
+                let track: HTMLDivElement | undefined
+
+                const pick = (event: MouseEvent) => {
+                  if (!track || levels().length <= 1) return
+
+                  const rect = track.getBoundingClientRect()
+                  const position = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
+                  const next = Math.round(position * (levels().length - 1))
+
+                  choose(item(), levels()[next] ?? null)
+                }
+
+                return (
+                  <div data-slot="model-dialog-effort" class="w-full px-4 pt-5 pb-5">
+                    <div data-slot="model-detail-card">
+                      <div data-slot="model-detail-heading" class="flex flex-col gap-1">
+                        <div class="flex min-w-0 items-center gap-2">
+                          <span class="truncate text-[15px] font-semibold leading-5 text-[#1a1a1a]">{item().name}</span>
+                          <Show when={modelCatalog(item()).isNew}>
+                            <span data-slot="model-new-badge">New</span>
+                          </Show>
+                        </div>
+                        <span class="truncate text-[12px] leading-4 text-[#9a9a9a]">{labels.name(item().provider)}</span>
+                      </div>
+                      {/* Vendor description, taken from the model's official docs. */}
+                      <Show when={modelCatalog(item()).description}>
+                        {(text) => <p class="mt-2.5 text-[12px] leading-[18px] text-[#555]">{text()}</p>}
+                      </Show>
+                      <Show when={modelCatalog(item()).price}>
+                        {(price) => (
+                          <div data-slot="model-detail-price">
+                            官网定价 {price()}
+                            <Show when={modelCatalog(item()).ratio}>
+                              {(ratio) => <span> · 约 {ratio()}</span>}
+                            </Show>
+                          </div>
+                        )}
+                      </Show>
+                    </div>
+                    <div class="mt-6 flex items-baseline justify-between">
+                      <span class="text-[12px] text-[#8a8a8a]">思考强度</span>
+                      <span class="text-[13px] font-medium text-[#2f6fed]">{label()}</span>
+                    </div>
+                    <div
+                      ref={track}
+                      data-slot="model-dialog-effort-track"
+                      role="slider"
+                      aria-label={language.t("command.model.choose")}
+                      aria-valuemin={1}
+                      aria-valuemax={levels().length}
+                      aria-valuenow={index() + 1}
+                      aria-valuetext={label()}
+                      tabIndex={0}
+                      class="relative mt-3 mb-1 h-[10px] w-full cursor-pointer rounded-full bg-[#ececec]"
+                      onClick={(event) => pick(event as unknown as MouseEvent)}
+                    >
+                      <div
+                        class="pointer-events-none absolute inset-y-0 left-0 rounded-full bg-[#3d7eff]"
+                        style={{ width: `${ratio() * 100}%` }}
+                      />
+                      <span class="pointer-events-none absolute left-[7px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-white/70" />
+                      <span class="pointer-events-none absolute right-[7px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-[#c4c4c4]" />
+                      <span
+                        class="pointer-events-none absolute top-1/2 size-[22px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.06)]"
+                        style={{ left: `${ratio() * 100}%` }}
+                      />
+                    </div>
+                    <div data-slot="model-effort-stops" class="mt-1.5 flex justify-between text-[11px] text-[#8a8a8a]">
+                      <span>低</span>
+                      <span>高</span>
+                      <span>最大</span>
+                    </div>
                   </div>
-                )}
-              </For>
+                )
+              })()}
               <div data-slot="menu-v2-separator" role="separator" />
               <div
                 data-component="menu-v2-item"
@@ -1119,6 +1234,7 @@ export function DialogSelectModel(props: { provider?: string; model?: ModelState
           </div>
         )}
       </Show>
+      </div>
     </Dialog>
   )
 }

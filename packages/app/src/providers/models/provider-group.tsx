@@ -24,8 +24,24 @@ function CustomManagedProviderIcon(props: { class?: string }) {
   return <img data-component="custom-managed-provider-icon" src={customManagedProvider} alt="" class={props.class} />
 }
 
-export function ProviderModelIcon(props: { provider: ModelProvider; class?: string }) {
+export function ProviderModelIcon(props: { provider: ModelProvider; modelName?: string; class?: string }) {
+  // Models resold through a gateway all share that gateway's provider id, so the provider
+  // mark alone would render every one of them identically. Guess the real vendor from the
+  // model name first and only fall back to the provider's own mark.
+  const guess = () => {
+    const slug = (props.modelName ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")
+
+    if (!slug) return undefined
+
+    return iconNames.find((name) => {
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g, "")
+
+      return key.length >= 3 && slug.includes(key)
+    })
+  }
+
   const icon = () =>
+    guess() ??
     [
       props.provider.canonical,
       props.provider.canonical?.replace(/-token-plan$/, ""),
@@ -34,11 +50,15 @@ export function ProviderModelIcon(props: { provider: ModelProvider; class?: stri
 
   return (
     <Switch>
-      <Match when={props.provider.id === "opencode"}>
+      <Match when={!guess() && props.provider.id === "opencode"}>
         <OpenCodeLogo class={`size-4 ${props.class ?? ""}`} />
       </Match>
       <Match when={icon()} keyed>
-        {(id) => <ProviderIcon id={id} width={16} height={16} class={props.class} />}
+        {(id) => (
+          // The sprite's paths carry no fill of their own, so without this they paint solid
+          // black. Inheriting the text colour lets callers tint the mark.
+          <ProviderIcon id={id} width={16} height={16} class={props.class} fill="currentColor" />
+        )}
       </Match>
       <Match when={true}>
         <CustomManagedProviderIcon class={`size-4 ${props.class ?? ""}`} />

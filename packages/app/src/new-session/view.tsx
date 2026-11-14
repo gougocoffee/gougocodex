@@ -4,15 +4,7 @@ import { Icon } from "@opencode/ui/icon"
 import { Keybind } from "@opencode/ui/keybind"
 import { useCommand } from "@/shell/commands/command"
 import { Show, createComputed, createMemo, createSignal, onCleanup, untrack } from "solid-js"
-import { createStore } from "solid-js/store"
-import { createResizeObserver } from "@solid-primitives/resize-observer"
-import {
-  displayName,
-  getProjectAvatarGenerated,
-  getProjectAvatarSource,
-  getProjectAvatarVariant,
-  ProjectAvatar,
-} from "@opencode/ui/project-avatar"
+import { displayName } from "@opencode/ui/project-avatar"
 import { Schema } from "effect"
 import { createPresence } from "@/runtime/presence"
 import { Composer } from "@/composer/composer"
@@ -43,6 +35,7 @@ import { NewSessionBranch } from "./workspace/selector"
 import { NewSessionBrickBreaker } from "./brick-breaker"
 import { NewSessionPinBoard } from "./pin-board"
 import { NewSessionWordmark } from "./wordmark"
+import { CodexHero } from "./codex-hero"
 import {
   createWordmarkState,
   selectBrickBreaker,
@@ -106,26 +99,34 @@ export function NewSessionView(props: {
       <div
         ref={panel}
         data-component="new-session"
-        class="relative isolate flex-1 min-h-0 overflow-hidden rounded-[10px] bg-v2-background-bg-base shadow-[var(--v2-elevation-raised)]"
+        class="relative isolate flex-1 min-h-0 overflow-hidden bg-v2-background-bg-base"
       >
         <ComposerDropzone
           active={props.composer.state.drag === "active"}
           input={props.composer.model.selection.current()?.capabilities.input}
         />
-        <div class="absolute inset-x-0 top-[25.375%] flex justify-center px-6">
+        {/* Codex-style hero: glyph + headline, optically centred in the empty canvas. */}
+        <div class="pointer-events-none absolute inset-x-0 top-[38%] flex justify-center px-6">
+          <div class="pointer-events-auto">
+            {/* The animated wordmark is kept mounted (its state machine also drives the pin-board and
+                brick-breaker easter eggs) but painted out of view, so the hero takes its place. */}
+            <div class="absolute size-0 overflow-hidden opacity-0" aria-hidden="true">
+              <NewSessionWordmark
+                ref={setLogo}
+                state={wordmark}
+                onEvent={dispatchWordmark}
+                play
+                sound={settings.sounds.interfaceEnabled}
+              />
+            </div>
+            <CodexHero project={props.project.selected() ? displayName(props.project.selected()!) : undefined} />
+          </div>
+        </div>
+        {/* Composer pinned to the bottom edge, the way Codex anchors its input. */}
+        <div class="absolute inset-x-0 bottom-0 flex justify-center px-6 pb-7">
           <div class={NEW_SESSION_CONTENT_WIDTH}>
-            <NewSessionWordmark
-              ref={setLogo}
-              state={wordmark}
-              onEvent={dispatchWordmark}
-              play
-              sound={settings.sounds.interfaceEnabled}
-            />
-            <div class="mt-8 flex flex-col gap-3">
+            <div class="flex flex-col gap-3">
               <div data-slot="new-session-composer" class="flex flex-col gap-1">
-                <div class="relative z-10">
-                  <Composer model={props.composer} />
-                </div>
                 <Show when={props.project.selected()}>
                   {(project) => (
                     <NewSessionLocation
@@ -145,6 +146,9 @@ export function NewSessionView(props: {
                     />
                   )}
                 </Show>
+                <div class="relative z-10">
+                  <Composer model={props.composer} />
+                </div>
               </div>
               <Show when={props.project.empty()}>
                 <PromptProjectAddButton controller={props.project} />
@@ -264,29 +268,6 @@ function NewSessionTips(props: { selection: ComposerModel["model"]["selection"];
   )
 }
 
-// Keeps as many leading segments as fit, then "…/", then the last two segments. The cut always lands on a slash.
-function fitPath(value: string, width: number, font: string) {
-  const separator = value.includes("/") ? "/" : "\\"
-  const parts = value.split(separator)
-  const context = document.createElement("canvas").getContext("2d")
-
-  if (!context) return { text: value, minimum: 0 }
-  context.font = font
-  const fits = (text: string) => context.measureText(text).width <= width
-  const first = parts[0] === "" ? 2 : 1
-
-  const candidates = Array.from({ length: Math.max(0, parts.length - 2 - first) }, (_, index) =>
-    [...parts.slice(0, parts.length - 3 - index), "…", ...parts.slice(-2)].join(separator),
-  )
-
-  const minimum = candidates.at(-1) ?? value
-
-  return {
-    text: !width || fits(value) ? value : (candidates.find(fits) ?? minimum),
-    minimum: context.measureText(minimum).width,
-  }
-}
-
 const TRIGGER =
   "flex h-7 items-center gap-1.5 rounded-sm text-start ps-1.5 pe-2 text-v2-text-text-muted transition-colors hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:text-v2-text-text-base focus-visible:outline-none"
 
@@ -308,7 +289,6 @@ function NewSessionLocation(props: {
 }) {
   const language = useLanguage()
   const command = useCommand()
-  const [layout, setLayout] = createStore({ width: 0, font: "" })
 
   command.register("new-session-worktree", () => [
     {
@@ -366,97 +346,63 @@ function NewSessionLocation(props: {
 
   const path = () => (props.workspace === "main" || props.workspace === "create" ? props.root : props.workspace)
 
-  const fitted = createMemo(() => fitPath(path(), layout.width, layout.font))
+  const workspaceLabel = () =>
+    props.workspace === "main" || props.workspace === "create"
+      ? language.t("session.new.workspace.local")
+      : (props.workspace.split(/[\\/]/).filter(Boolean).at(-1) ?? props.workspace)
 
   return (
-    <div class="relative flex min-h-9 min-w-0 items-center gap-3 ps-2 pe-1.5 text-[13px] font-[440] leading-[var(--line-height-compact)] tracking-[-0.04px]">
-      <div class="flex min-w-0 max-w-full flex-wrap items-center gap-x-0 gap-y-1 py-1.5">
-        <div class="flex min-w-0 max-w-full items-center">
-          <Tooltip
-            placement="top"
-            openDelay={800}
-            value={
-              <span class="flex items-center gap-2">
-                {language.t("session.new.project.trigger.tooltip")}
-                <Show when={command.keybindParts("project.select").length}>
-                  <Keybind keys={command.keybindParts("project.select")} variant="neutral" />
-                </Show>
-              </span>
-            }
-            class="flex min-w-0"
+    <div class="relative flex h-9 min-h-9 min-w-0 items-center gap-1 rounded-t-[12px] bg-[#f4f4f4] px-1.5 text-[12.5px] font-[440] leading-[var(--line-height-compact)] tracking-[-0.04px]">
+      <div class="flex min-w-0 max-w-full items-center gap-0.5">
+        <Tooltip
+          placement="top"
+          openDelay={800}
+          value={
+            <span class="flex items-center gap-2">
+              {language.t("session.new.project.trigger.tooltip")}
+              <Show when={command.keybindParts("project.select").length}>
+                <Keybind keys={command.keybindParts("project.select")} variant="neutral" />
+              </Show>
+            </span>
+          }
+          class="flex min-w-0"
+        >
+          <button
+            type="button"
+            data-action="prompt-project"
+            aria-haspopup="dialog"
+            aria-description={language.t("session.new.project.trigger.tooltip")}
+            class={`${TRIGGER} min-w-0`}
+            onClick={props.onClick}
           >
-            <button
-              type="button"
-              data-action="prompt-project"
-              aria-haspopup="dialog"
-              aria-description={language.t("session.new.project.trigger.tooltip")}
-              class={`${TRIGGER} min-w-0`}
-              onClick={props.onClick}
-            >
-              <ProjectAvatar
-                class="shrink-0"
-                fallback={displayName(props.project)}
-                src={getProjectAvatarSource(props.project.id, props.project.icon)}
-                variant={getProjectAvatarVariant(props.project.icon?.color)}
-                generated={getProjectAvatarGenerated(props.project)}
-              />
-              <span class="min-w-0 truncate">{displayName(props.project)}</span>
-            </button>
-          </Tooltip>
-          <Show when={props.onOpen}>
-            {(onOpen) => (
-              <NewSessionBranch
-                branch={props.branch}
-                loading={branchLoading()}
-                onboarding={props.onboarding}
-                onOpen={onOpen()}
-              />
-            )}
-          </Show>
-        </div>
+            <Icon name="folder" size="small" class="shrink-0 text-v2-icon-icon-muted" />
+            <span class="min-w-0 truncate">{displayName(props.project)}</span>
+          </button>
+        </Tooltip>
+        <Tooltip placement="top" openDelay={800} value={path()} class="flex min-w-0">
+          <span
+            data-slot="new-session-workspace"
+            class="flex h-7 min-w-0 items-center gap-1.5 rounded-sm px-1.5 text-v2-text-text-muted"
+          >
+            <Icon
+              name={props.workspace === "main" || props.workspace === "create" ? "monitor" : "outline-worktree"}
+              class="shrink-0"
+            />
+            <span class="min-w-0 truncate">{workspaceLabel()}</span>
+          </span>
+        </Tooltip>
+        <Show when={props.onOpen}>
+          {(onOpen) => (
+            <NewSessionBranch
+              branch={props.branch}
+              loading={branchLoading()}
+              onboarding={props.onboarding}
+              onOpen={onOpen()}
+            />
+          )}
+        </Show>
       </div>
-      {/* An open tooltip can outlive this row; keep its path instead of a stale Show accessor. */}
-      <Show when={path()} keyed>
-        {(directory) => (
-          <div
-            class="flex min-w-0 flex-1 justify-end pe-1.5 @max-[560px]:hidden"
-            style={{ "min-width": `min(50%, ${Math.ceil(fitted().minimum) + 6}px)` }}
-          >
-            <Tooltip
-              placement="top"
-              value={directory}
-              disabled={fitted().text === directory && fitted().minimum <= layout.width}
-              class="flex min-w-0 flex-1"
-              contentClass="max-w-[calc(100vw-32px)] break-all"
-            >
-              <span
-                ref={(row) =>
-                  createResizeObserver(row, () =>
-                    setLayout({
-                      width: row.clientWidth,
-                      font: getComputedStyle(row).font,
-                    }),
-                  )
-                }
-                class="flex min-w-0 flex-1 items-center justify-end"
-                dir="ltr"
-              >
-                <span
-                  data-slot="new-session-location-path"
-                  class="min-w-0 cursor-text select-text overflow-hidden whitespace-nowrap text-v2-text-text-faint [direction:rtl] [text-align:end]"
-                  onCopy={(event) => {
-                    if (!event.clipboardData || window.getSelection()?.toString() !== fitted().text) return
-                    event.clipboardData.setData("text/plain", directory)
-                    event.preventDefault()
-                  }}
-                >
-                  <bdi dir="ltr">{fitted().text}</bdi>
-                </span>
-              </span>
-            </Tooltip>
-          </div>
-        )}
-      </Show>
+      <div class="flex-1" />
     </div>
   )
 }

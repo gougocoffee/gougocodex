@@ -474,13 +474,15 @@ export const layer = (options?: Options) =>
             (yield* Effect.filter(candidates, fs.isFile)).at(-1) ?? path.join(directory, "opencode.jsonc")
           const text = (yield* fs.readFileStringSafe(filepath)) ?? "{}\n"
           const updated = yield* Effect.try({
-            try: () =>
-              applyEdits(
-                text,
-                modify(text, ["shell"], patch.shell ?? undefined, {
-                  formattingOptions: { tabSize: 2, insertSpaces: true },
-                }),
-              ),
+            try: () => {
+              // Each patch key merges into the global document; unmentioned keys are left untouched, null clears one.
+              const formatting = { formattingOptions: { tabSize: 2, insertSpaces: true } }
+              let next = text
+              if ("shell" in patch) next = applyEdits(next, modify(next, ["shell"], patch.shell ?? undefined, formatting))
+              if ("compaction" in patch)
+                next = applyEdits(next, modify(next, ["compaction"], patch.compaction ?? undefined, formatting))
+              return next
+            },
             catch: (cause) => new FSUtil.FileSystemError({ method: "config.update", cause }),
           })
           yield* fs.writeWithDirs(filepath, updated.endsWith("\n") ? updated : `${updated}\n`)

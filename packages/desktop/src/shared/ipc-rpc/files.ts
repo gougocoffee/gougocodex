@@ -31,6 +31,11 @@ export const FilesOpenDirectoryPicker = Rpc.make("FilesOpenDirectoryPicker", {
   success: Schema.NullOr(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
 })
 
+export const FilesCreateProjectFolder = Rpc.make("FilesCreateProjectFolder", {
+  payload: { name: Schema.String },
+  success: Schema.String,
+})
+
 export const FilesOpenFilePicker = Rpc.make("FilesOpenFilePicker", {
   payload: { options: Schema.optional(FilePickerOptions) },
   success: Schema.NullOr(PickedFiles),
@@ -83,6 +88,7 @@ export const FilesWriteClipboardText = Rpc.make("FilesWriteClipboardText", {
 
 export const FileRpcs = RpcGroup.make(
   FilesOpenDirectoryPicker,
+  FilesCreateProjectFolder,
   FilesOpenFilePicker,
   FilesReadPickedFile,
   FilesReleasePickedFiles,

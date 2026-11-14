@@ -9,6 +9,7 @@ import { Slash } from "@opencode/ui/slash"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { ComposerEditor } from "./editor/editor"
 import { DialogSelectModel, ModelSelectorDrawer } from "@/providers/models/select-dialog"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { DialogSelectModelUnpaid } from "@/providers/models/unpaid"
 import { formatKeybind, useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -159,7 +160,18 @@ function ComposerModelControl(props: {
 
   const content = () => (
     <>
-      <span class="flex min-w-0 whitespace-nowrap leading-4">
+      <span class="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-4">
+        {/* Codex puts the vendor's mark before the model name. Native/gateway models have
+            no provider label at all, so the icon is derived from the model name itself and
+            must render even when the provider text is empty. */}
+        <ProviderModelIcon
+          provider={{
+            id: (props.label.provider ?? "").toLowerCase().replace(/\s+/g, "-"),
+            name: props.label.provider ?? "",
+          }}
+          modelName={props.label.model}
+          class="size-[15px] shrink-0 text-v2-icon-icon-base"
+        />
         <Show when={props.label.provider}>
           {(name) => (
             <>

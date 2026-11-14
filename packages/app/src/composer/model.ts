@@ -497,10 +497,13 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       placeholder,
       get agent() {
         const agents = adapter.controls().agents
+        // Built-in agents get friendly Chinese labels; custom agents keep their own name.
+        const agentLabel = (name: string) =>
+          ({ build: "构建", plan: "规划" })[name] ?? name
 
         return agents.visible && agents.options.length > 0
           ? {
-              options: () => adapter.controls().agents.options.map((name) => ({ id: name, label: name })),
+              options: () => adapter.controls().agents.options.map((name) => ({ id: name, label: agentLabel(name) })),
               current: () => adapter.controls().agents.current,
               onSelect: (value: string) => adapter.controls().agents.select(value),
               keybind: () => command.keybindParts("agent.cycle"),

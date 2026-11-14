@@ -60,6 +60,7 @@ import {
 import { composerHistoryPreviewHeight, composerPopoverActiveID, isComposerPopoverOpen } from "../suggestions/machine"
 import { QuoteCommentEditor } from "./quote-comment"
 import { selectQuoteCommentView, type QuoteCommentController } from "../quote-comment-machine"
+import { effortLabel } from "../model-label"
 import "../attachments/attachments.css"
 import "./editor.css"
 import "@/shell/palette-menu.css"
@@ -1073,7 +1074,7 @@ function ComposerEditorConfiguredSelect(props: {
   class?: string
 }) {
   const current = () => props.control.current()
-  const providerID = () => props.control.options().find((option) => option.id === current())?.providerID
+  const currentOption = () => props.control.options().find((option) => option.id === current())
 
   return (
     <ComposerEditorSelect
@@ -1085,14 +1086,28 @@ function ComposerEditorConfiguredSelect(props: {
       options={props.control.options()}
       current={current()}
       currentIcon={
-        <Show when={props.model && providerID()}>
-          {(id) => <ProviderModelIcon provider={{ id: id(), name: id() }} class="shrink-0 opacity-60" />}
+        <Show when={props.model && currentOption()}>
+          {(option) => (
+            // Codex's chip leads with the brand mark in a dark tile, guessed from the model
+            // name so gateway models keep their own vendor's logo.
+            <span class="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] bg-[#1f1f1f] text-white">
+              <ProviderModelIcon
+                provider={{ id: option().providerID ?? "", name: option().providerID ?? "" }}
+                modelName={option().label}
+                class="!size-[13px]"
+              />
+            </span>
+          )}
         </Show>
       }
       onSelect={props.control.onSelect}
     />
   )
 }
+
+/** Reasoning-effort option ids. Lets the effort select be told apart from the agent select,
+ * which is built from the same component. */
+const EFFORT_IDS = new Set(["default", "none", "minimal", "low", "medium", "high", "xhigh", "max"])
 
 function ComposerEditorSelect(props: {
   mobileDrawer?: boolean
@@ -1123,11 +1138,17 @@ function ComposerEditorSelect(props: {
     if (!mobile() && store.open) setOpen(false)
   })
 
+  // This select is reused for agents (build / plan) and for reasoning effort. Only the
+  // effort tiers get the slider; everything else keeps the plain radio menu.
+  const isEffort = () =>
+    props.options.length > 0 &&
+    props.options.every((option) => EFFORT_IDS.has(option.id.trim().toLowerCase()))
+
   const content = () => (
     <>
       {props.currentIcon}
-      <span class="truncate capitalize leading-5">
-        {props.options.find((option) => option.id === props.current)?.label ?? props.current}
+      <span class="truncate leading-5">
+        {effortLabel(props.options.find((option) => option.id === props.current)?.label ?? props.current)}
       </span>
       <span class="-ms-0.5 -me-1 flex shrink-0">
         <Icon name="chevron-down" />
@@ -1149,7 +1170,7 @@ function ComposerEditorSelect(props: {
       <Show
         when={props.mobileDrawer && mobile()}
         fallback={
-          <Menu gutter={6} modal={false} placement="top-start" onOpenChange={props.onOpenChange}>
+          <Menu gutter={6} modal={false} placement="top" onOpenChange={props.onOpenChange}>
             <Menu.Trigger
               {...focus.trigger}
               as={Button}
@@ -1163,21 +1184,183 @@ function ComposerEditorSelect(props: {
             <Menu.Portal>
               <Menu.Content
                 onCloseAutoFocus={focus.onCloseAutoFocus}
-                class={props.fitMenuToOptions ? "!min-w-0" : undefined}
+                class={
+                  isEffort()
+                    ? "!w-auto !min-w-0 !border-0 !bg-transparent !p-0 !shadow-none !outline-none"
+                    : props.fitMenuToOptions
+                      ? "!min-w-0"
+                      : undefined
+                }
               >
-                <Menu.RadioGroup value={props.current} onChange={props.onSelect}>
-                  <For each={props.options}>
-                    {(option) => (
-                      <Menu.RadioItem
-                        value={option.id}
-                        class={props.fitMenuToOptions ? "capitalize !gap-6" : "capitalize"}
-                        closeOnSelect
-                      >
-                        {option.label}
-                      </Menu.RadioItem>
-                    )}
-                  </For>
-                </Menu.RadioGroup>
+                <Show
+                  when={isEffort()}
+                  fallback={
+                    <Menu.RadioGroup value={props.current} onChange={props.onSelect}>
+                      <For each={props.options}>
+                        {(option) => (
+                          <Menu.RadioItem
+                            value={option.id}
+                            class={props.fitMenuToOptions ? "capitalize !gap-6" : "capitalize"}
+                            closeOnSelect
+                          >
+                            {option.label}
+                          </Menu.RadioItem>
+                        )}
+                      </For>
+                    </Menu.RadioGroup>
+                  }
+                >
+                <div data-slot="effort-slider">
+                  {(() => {
+                    // Codex presents reasoning effort as a draggable track rather than a radio list.
+                    // The highest tiers warm into violet, so the colour itself reads as intensity.
+                    const index = () => Math.max(0, props.options.findIndex((option) => option.id === props.current))
+                    // While dragging, the knob follows the pointer exactly; the snap to a tier happens on release.
+                    const [dragRatio, setDragRatio] = createSignal<number | undefined>(undefined)
+                    const snapRatio = () => (props.options.length <= 1 ? 0 : index() / (props.options.length - 1))
+                    const ratio = () => dragRatio() ?? snapRatio()
+                    const hot = () => ratio() >= 0.62
+                    const current = () =>
+                      effortLabel(props.options.find((option) => option.id === props.current)?.label ?? props.current)
+                    const fill = () =>
+                      hot() ? "linear-gradient(90deg, #5b56f6 0%, #a855f7 100%)" : "#3d7eff"
+                    // Liquid motes: each speck streams right through the filled range on its own schedule,
+                    // the way Codex's violet range reads as flowing light. Fixed seeds keep places stable.
+                    const MOTES = Array.from({ length: 22 }, (_, i) => ({
+                      left: (i * 43) % 96,
+                      top: 14 + ((i * 61) % 72),
+                      delay: -((i * 0.37) % 3.4),
+                      duration: 2.1 + ((i * 7) % 5) * 0.34,
+                      size: [1.5, 2.2, 1.8, 2.8, 1.6][i % 5],
+                    }))
+                    let track: HTMLDivElement | undefined
+
+                    const position = (clientX: number) => {
+                      if (!track) return 0
+                      const rect = track.getBoundingClientRect()
+                      return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+                    }
+
+                    const commit = (value: number) => {
+                      const next = Math.round(value * (props.options.length - 1))
+                      const id = props.options[next]?.id
+                      if (id && id !== props.current) props.onSelect(id)
+                    }
+
+                    return (
+                      <div class="w-[300px] rounded-[16px] !bg-white px-4 pb-4 pt-3 shadow-[0_12px_32px_rgba(0,0,0,0.12),0_1px_4px_rgba(0,0,0,0.05),0_0_0_0.5px_rgba(0,0,0,0.08)]">
+                        <div class="relative flex items-start justify-center">
+                          {/* Bolt on the left, refresh on the right: Codex's header furniture. */}
+                          <span
+                            class="absolute left-0 top-[3px] transition-colors duration-200"
+                            style={{ color: hot() ? "#a855f7" : "#3d7eff" }}
+                            aria-hidden="true"
+                          >
+                            <svg viewBox="0 0 24 24" class="size-[18px]" fill="currentColor">
+                              <path d="M13 2 4.6 13.4h5.6L9 22l8.4-11.4h-5.6L13 2Z" />
+                            </svg>
+                          </span>
+                          <span class="absolute right-0 top-[2px] text-[#cbcbcb]" aria-hidden="true">
+                            <svg
+                              viewBox="0 0 24 24"
+                              class="size-[17px]"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path d="M20.5 12a8.5 8.5 0 1 1-2.55-6.05" />
+                              <path d="M20.5 3.5v5h-5" />
+                            </svg>
+                          </span>
+                          <div class="flex flex-col items-center gap-1">
+                            <span
+                              class="text-[17px] font-medium leading-6 transition-colors duration-200"
+                              style={{ color: hot() ? "#8b5cf6" : "#2f6fed" }}
+                            >
+                              {current()}
+                            </span>
+                            <span class="text-[13.5px] leading-5 text-[#8e8e8e]">{props.title}</span>
+                          </div>
+                        </div>
+                        <div
+                          ref={track}
+                          data-slot="effort-slider-track"
+                          data-hot={hot() ? "" : undefined}
+                          data-dragging={dragRatio() !== undefined ? "" : undefined}
+                          role="slider"
+                          aria-label={props.title}
+                          aria-valuemin={1}
+                          aria-valuemax={props.options.length}
+                          aria-valuenow={index() + 1}
+                          aria-valuetext={current()}
+                          tabIndex={0}
+                          class="relative mt-5 h-[16px] w-full cursor-pointer touch-none rounded-full bg-[#ececec] outline-none focus-visible:outline-none"
+                          onPointerDown={(event) => {
+                            event.currentTarget.setPointerCapture(event.pointerId)
+                            setDragRatio(position(event.clientX))
+                          }}
+                          onPointerMove={(event) => {
+                            if (event.currentTarget.hasPointerCapture(event.pointerId))
+                              setDragRatio(position(event.clientX))
+                          }}
+                          onPointerUp={(event) => {
+                            event.currentTarget.releasePointerCapture(event.pointerId)
+                            const value = dragRatio() ?? snapRatio()
+                            setDragRatio(undefined)
+                            commit(value)
+                            setOpen(false)
+                          }}
+                        >
+                          <div
+                            class="pointer-events-none absolute inset-y-0 left-0 overflow-hidden rounded-full transition-[background] duration-200"
+                            style={{ width: `${ratio() * 100}%`, background: fill() }}
+                          >
+                            {/* Liquid light: specks stream right through the violet range while it is
+                                high, with a soft sheen gliding along the surface. */}
+                            <Show when={hot()}>
+                              <span
+                                data-slot="effort-sheen"
+                                class="pointer-events-none absolute inset-0"
+                                aria-hidden="true"
+                              />
+                              <For each={MOTES}>
+                                {(mote) => (
+                                  <span
+                                    class="absolute rounded-full bg-white"
+                                    style={{
+                                      left: `${mote.left}%`,
+                                      top: `${mote.top}%`,
+                                      width: `${mote.size}px`,
+                                      height: `${mote.size}px`,
+                                      animation: `effort-flow ${mote.duration}s linear ${mote.delay}s infinite`,
+                                    }}
+                                  />
+                                )}
+                              </For>
+                            </Show>
+                          </div>
+                          <Show when={ratio() >= 1}>
+                            <span
+                              data-slot="effort-burst"
+                              class="pointer-events-none absolute top-1/2 size-[24px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#a855f7]/40"
+                              style={{ left: "100%" }}
+                            />
+                          </Show>
+                          <span class="pointer-events-none absolute left-[6px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-white/75" />
+                          <span class="pointer-events-none absolute right-[6px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-[#c9c9c9]" />
+                          <span
+                            class="pointer-events-none absolute top-1/2 size-[30px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,0.22),0_0_0_0.5px_rgba(0,0,0,0.06)]"
+                            classList={{ "transition-[left] duration-150": dragRatio() === undefined }}
+                            style={{ left: `${ratio() * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+                </Show>
               </Menu.Content>
             </Menu.Portal>
           </Menu>

@@ -1,7 +1,7 @@
 export * as DesktopFiles from "./index"
 
 import { execFile, spawn } from "node:child_process"
-import { clipboard, dialog, nativeImage, shell, webContents } from "electron"
+import { app, clipboard, dialog, nativeImage, shell, webContents } from "electron"
 import { Context, Effect, FileSystem, Layer, Path } from "effect"
 import type { DirectoryPickerOptions, FilePickerOptions, SaveFilePickerOptions } from "../../shared/ipc-contract"
 import { scoped } from "../native/logging"
@@ -72,6 +72,13 @@ function make(
       if (result.canceled) return null
 
       return options?.multiple ? result.filePaths : result.filePaths[0]
+    }),
+    createProjectFolder: Effect.fn("DesktopFiles.createProjectFolder")(function* (name: string) {
+      const created = yield* availableFolder(fs, path, path.join(app.getPath("documents"), "gougocodex", name))
+
+      yield* fs.makeDirectory(created, { recursive: true })
+
+      return created
     }),
     openFilePicker: Effect.fn("DesktopFiles.openFilePicker")(function* (sender: number, options?: FilePickerOptions) {
       const picker = pickedFiles.open(sender)
@@ -199,6 +206,26 @@ function make(
 
 // Chromium exposes copied bitmaps as image/png; JPEG only appears when an app placed one explicitly.
 const clipboardImageTypes = ["image/png", "image/jpeg"]
+
+/** An empty project is named from text alone, so its folder takes the first free name in Documents. */
+function availableFolder(fs: FileSystem.FileSystem, path: Path.Path, target: string) {
+  const parent = path.dirname(target)
+  // An auto-numbered name ("新项目 3") keeps numbering instead of nesting suffixes ("新项目 3 2").
+  const match = /^(.*?)(?:\s+(\d+))?$/.exec(path.basename(target))
+  const base = match?.[1] || path.basename(target)
+  const start = Number(match?.[2] ?? 0)
+
+  const attempt = (index: number): Effect.Effect<string> => {
+    const candidate = path.join(parent, index === 0 ? base : `${base} ${index}`)
+
+    return fs.exists(candidate).pipe(
+      Effect.orElseSucceed(() => false),
+      Effect.flatMap((exists) => (exists ? attempt(index + 1) : Effect.succeed(candidate))),
+    )
+  }
+
+  return attempt(start)
+}
 
 export const openExternalURL = Effect.fn("DesktopFiles.openExternalURL")(function* (value: string) {
   const url = resolveExternalURL(value)

@@ -6,6 +6,7 @@ type DesktopOS = Extract<Platform, { platform: "desktop" }>["os"]
 type DesktopFileAPI = Pick<
   ElectronAPI,
   | "openDirectoryPicker"
+  | "createProjectFolder"
   | "openFilePicker"
   | "readPickedFile"
   | "releasePickedFiles"
@@ -70,6 +71,7 @@ export function createDesktopFiles(api: DesktopFileAPI, os: DesktopOS) {
 
   return {
     openDirectoryPickerDialog,
+    createProjectFolder: (name: string) => api.createProjectFolder(name),
     openAttachmentPickerDialog,
     openFilePathPickerDialog,
     getPathForFile: (file: File) => attachmentPaths.get(file) ?? api.getPathForFile(file),

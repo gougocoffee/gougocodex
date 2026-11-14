@@ -448,7 +448,7 @@ function SessionScreenContent(props: {
 
   return (
     <>
-      <div class="flex-1 min-h-0 flex flex-col gap-2 px-[var(--shell-inline-inset,8px)] pb-[var(--shell-bottom-inset,8px)] pt-[var(--shell-top-inset,8px)]">
+      <div class="flex-1 min-h-0 flex flex-col gap-2">
         <div ref={screen.panel.ref} data-pane-row class="relative flex-1 min-h-0 flex flex-col md:flex-row gap-2">
           {/* Keep the control outside panel animations. */}
           <Show when={isDesktop() && messagesReady() && session.identity.params.id}>
@@ -478,7 +478,7 @@ function SessionScreenContent(props: {
             onKeyDown={revealTimelineScrollbar}
           >
             <Show when={!!session.identity.params.id}>
-              <SessionPanelFrame raised>
+              <SessionPanelFrame>
                 <ErrorBoundary fallback={sessionErrorFallback}>{sessionPanelContent()}</ErrorBoundary>
               </SessionPanelFrame>
             </Show>
@@ -566,7 +566,7 @@ function SessionScreenContent(props: {
               id="bottom-panel"
               aria-label={language.t("session.panel.bottom")}
               inert={!bottomOpen() || undefined}
-              class="size-full min-w-0 flex flex-col overflow-hidden bg-v2-background-bg-base rounded-[10px] shadow-[var(--v2-elevation-raised)]"
+              class="size-full min-w-0 flex flex-col overflow-hidden bg-v2-background-bg-base"
             >
               <PaneTabs
                 pane={region.pane("bottom")}

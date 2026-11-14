@@ -11,6 +11,7 @@ export const fileHandlers = FileRpcs.toLayer(
 
     return FileRpcs.of({
       FilesOpenDirectoryPicker: ({ options }) => files.openDirectoryPicker(options),
+      FilesCreateProjectFolder: ({ name }) => files.createProjectFolder(name).pipe(Effect.orDie),
       FilesOpenFilePicker: ({ options }, context) =>
         files
           .openFilePicker(

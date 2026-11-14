@@ -167,7 +167,7 @@
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-titlebar-tab-list][data-orientation="vertical"] {
-  gap: 3px;
+  gap: 4px;
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-component="resize-handle"] {
@@ -203,6 +203,9 @@
   --tab-link-inset: 8px;
   overflow: visible;
   padding-inline: 0;
+  /* The sidebar reads as a list, so its rows are taller and softer than the horizontal strip's. */
+  height: 32px;
+  border-radius: 8px;
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-titlebar-tab-link] {
@@ -215,11 +218,11 @@
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-titlebar-tab-slot] + [data-titlebar-tab-slot] [data-titlebar-tab] {
-  --tab-hit-before: 1.5px;
+  --tab-hit-before: 2px;
 }
 
 [data-slot="vertical-tabs-sidebar"] [data-titlebar-tab-slot]:has(+ [data-titlebar-tab-slot]) [data-titlebar-tab] {
-  --tab-hit-after: 1.5px;
+  --tab-hit-after: 2px;
 }
 
 [data-titlebar-tab-slot] {

@@ -1,3 +1,13 @@
+/* Codex stacks layout previews under the row copy instead of squeezing the description beside them. */
+[data-component="settings-row"]:has([data-component="interface-mode"]) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+[data-component="settings-row"]:has([data-component="interface-mode"]) [data-slot="settings-row-control"] {
+  justify-content: flex-start;
+}
+
 [data-component="interface-mode"] {
   display: flex;
   gap: 12px;
@@ -15,7 +25,7 @@
   display: flex;
   overflow: hidden;
   /* A fixed size keeps the row from resizing when the chosen layout changes the panel width. */
-  width: 120px;
+  width: 152px;
   min-width: 0;
   flex-direction: column;
   box-sizing: border-box;
