@@ -6,7 +6,7 @@
 
 ## 这是什么
 
-`gougocodex` 是 [anomalyco/opencode](https://github.com/anomalyco/opencode) 的一个 fork，`dev` 分支持续合并上游，自己的改动集中在**桌面端的界面与交互**：
+`gougo codex` 是 [anomalyco/opencode](https://github.com/anomalyco/opencode) 的一个 fork，`dev` 分支持续合并上游，自己的改动集中在**桌面端的界面与交互**：
 
 - 技术栈：Bun monorepo + Electron 桌面壳 + SolidJS 渲染层
 - 目标形态：macOS 上双击即用的「编码代理」，不是跑在终端里的 CLI
