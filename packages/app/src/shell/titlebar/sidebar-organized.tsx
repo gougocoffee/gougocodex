@@ -1,37 +1,30 @@
 import { Schema } from "effect"
-import { createEffect, createMemo, Show, onCleanup, untrack, type Accessor, type JSX } from "solid-js"
-import { Key } from "@solid-primitives/keyed"
+import { createEffect, createMemo, createSignal, For, Show, onCleanup, type Accessor, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
-import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
-import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
-import { Accessibility, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
-import { RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers"
+import { useQueries } from "@tanstack/solid-query"
+import type { SessionInfo } from "@opencode/client/promise"
 import { Icon } from "@opencode/ui/icon"
-import { IconButton } from "@opencode/ui/icon-button"
-import { Menu } from "@opencode/ui/menu"
 import { ScrollView } from "@opencode/ui/scroll-view"
-import { displayName } from "@opencode/ui/project-avatar"
-import { useDialog } from "@opencode/ui/context/dialog"
-import { createProjectActions } from "@/home/projects/actions"
-import { ProjectDeleteDialog } from "@/home/projects/delete-dialog"
-import { ProjectMenuItems } from "@/home/projects/menu"
-import { usePlatform } from "@/runtime/platform/platform"
-import { showToast } from "@/shell/notifications/toast"
-import { arrayMove } from "@/runtime/array-move"
+import { homeSessionsQuery } from "@/home/sessions/queries"
 import { useLanguage } from "@/runtime/i18n/language"
 import { Persistence } from "@/runtime/persistence/schema"
 import { Persist, persisted } from "@/runtime/persistence/storage"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
-import type { Project } from "@/runtime/server/types"
+import { getRelativeTime } from "@/shell/time"
 import { useLayout } from "@/shell/state/layout"
+import { createProjectSessionActions } from "@/shell/tabs/project-sessions"
 import { useTabs, type Tab } from "@/shell/tabs/tabs"
+import { sessionLabel } from "@/session/title"
+import { isSidebarSessionActivity, mergeSidebarSessions } from "./sidebar-sessions"
 import "./tab-nav.css"
-import { isSidebarSessionActivity } from "./sidebar-sessions"
-import { CreateProjectDialog } from "./create-project-dialog"
 
+const TASK_STEP = 5
+
+// Old fields stay in the schema so a persisted sidebar.organize blob written by earlier versions still decodes.
 const SidebarState = Persistence.struct({
   projectsCollapsed: Schema.Boolean,
+  tasksCollapsed: Persistence.fallback(Schema.Boolean, () => false),
   recentsCollapsed: Persistence.fallback(Schema.Boolean, () => false),
   expanded: Persistence.record(Schema.Boolean),
   order: Persistence.record(Schema.mutable(Schema.Array(Schema.String))),
@@ -68,7 +61,7 @@ export function createSidebarActivityListener() {
   })
 }
 
-// Resolved once for the whole sidebar, so the section headers and the project rows always agree on the connection.
+// Resolved once for the whole sidebar, so the header and every task row agree on the connection.
 function useSidebarConnection(currentTab: () => Tab | undefined) {
   const servers = useServers()
 
@@ -82,6 +75,10 @@ function useSidebarConnection(currentTab: () => Tab | undefined) {
   )
 }
 
+/**
+ * The sidebar is a single 任务 list: every root conversation of this server, newest first, with its age on the right.
+ * Projects no longer get their own rows or section; the hidden tab strip still owns the tab shortcuts.
+ */
 export function SidebarOrganized(props: {
   currentTab: Tab | undefined
   children: (highlightActive: Accessor<boolean>) => JSX.Element
@@ -94,23 +91,73 @@ export function SidebarOrganized(props: {
 
   const ctx = useServerCtx(connection)
 
-  const dialog = useDialog()
+  const sessionActions = createProjectSessionActions()
 
-  const projectsReady = () => !!ctx()?.sync.project.ready()
+  const recentQueries = useQueries(() => ({ queries: [homeSessionsQuery(connection(), ctx())] }))
 
-  const projectCount = () => ctx()?.projects.used().length ?? 0
+  const [state, setState] = persisted(Persist.global("sidebar.organize"), SidebarState, {
+    projectsCollapsed: false,
+    tasksCollapsed: false,
+    recentsCollapsed: false,
+    expanded: {},
+    order: {},
+  })
+
+  // How many rows the list shows before "查看更多", and whether the whole list is expanded.
+  const [view, setView] = createStore({ expanded: false })
+
+  // Labels read the clock, so "3分钟前" keeps counting while the window stays open.
+  const [now, setNow] = createSignal(Date.now())
+
+  const clock = setInterval(() => setNow(Date.now()), 60_000)
+
+  onCleanup(() => clearInterval(clock))
 
   const [local, setLocal] = createStore<{
     thumbTrack: HTMLDivElement | undefined
     hoverTarget: HTMLDivElement | undefined
   }>({ thumbTrack: undefined, hoverTarget: undefined })
 
-  const [state, setState, , ready] = persisted(Persist.global("sidebar.organize"), SidebarState, {
-    projectsCollapsed: false,
-    recentsCollapsed: false,
-    expanded: {},
-    order: {},
+  const server = createMemo(() => {
+    const conn = connection()
+
+    return conn ? ServerConnection.key(conn) : undefined
   })
+
+  const tasks = createMemo(() => {
+    const current = ctx()
+
+    if (!current) return []
+
+    const fetched = recentQueries[0]?.data?.() ?? []
+
+    return current.data.session
+      .apply(mergeSidebarSessions(fetched, current.data.session.known()))
+      .filter((session) => !session.parentID && session.time.archived === undefined)
+      .sort((a, b) => b.time.updated - a.time.updated)
+  })
+
+  const visibleTasks = () => (view.expanded ? tasks() : tasks().slice(0, TASK_STEP))
+
+  const taskTime = (session: SessionInfo) => {
+    now()
+
+    return getRelativeTime(new Date(session.time.updated).toISOString(), language.t, language.intl())
+  }
+
+  const taskActive = (session: SessionInfo) => {
+    const tab = props.currentTab
+
+    return tab?.type === "session" && tab.server === server() && tab.sessionId === session.id
+  }
+
+  const openTask = (session: SessionInfo) => {
+    const conn = connection()
+
+    if (!conn) return
+
+    sessionActions.openProjectSession(conn, session.location.directory, session, { preview: true })
+  }
 
   return (
     <div
@@ -126,320 +173,75 @@ export function SidebarOrganized(props: {
       />
       <ScrollView class="min-h-0 flex-1" thumbContainer={local.thumbTrack} thumbHoverTarget={local.hoverTarget}>
         <div class="flex flex-col gap-3">
-          <Show when={projectsReady()}>
-            <section class="flex shrink-0 flex-col gap-1">
-              <div class="group flex h-7 w-full shrink-0 items-center gap-1 ps-2 pe-1">
-                <button
-                  type="button"
-                  class="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[8px] text-start text-[13px] leading-4 text-v2-text-text-muted focus-visible:outline-none"
-                  aria-expanded={!state.projectsCollapsed}
-                  onClick={() => setState("projectsCollapsed", (value) => !value)}
-                >
-                  <span class="min-w-0 truncate">{language.t("sidebar.organize.projects")}</span>
-                  <Show when={projectCount() > 0}>
-                    <span class="shrink-0 text-v2-text-text-faint">({projectCount()})</span>
-                  </Show>
-                  <Icon
-                    name="fill-triangle-down"
-                    size="small"
-                    class="shrink-0 text-v2-icon-icon-muted transition-transform"
-                    classList={{ "-rotate-90 rtl:rotate-90": state.projectsCollapsed }}
-                  />
-                </button>
-                <span class="flex shrink-0 items-center gap-1">
-                  <Menu gutter={6} placement="bottom-end">
-                    <Menu.Trigger
-                      as={IconButton}
-                      variant="ghost-muted"
-                      size="small"
-                      icon={<Icon name="outline-dots" />}
-                      aria-label={language.t("common.moreOptions")}
-                    />
-                    <Menu.Portal>
-                      <Menu.Content>
-                        <Menu.Item onSelect={() => setState("projectsCollapsed", true)}>
-                          {language.t("sidebar.organize.collapseAll")}
-                        </Menu.Item>
-                        <Menu.Item
-                          onSelect={() => {
-                            setState("projectsCollapsed", false)
-                            setState("expanded", {})
-                          }}
-                        >
-                          {language.t("sidebar.organize.expandAll")}
-                        </Menu.Item>
-                        <Menu.Item
-                          onSelect={() => {
-                            const conn = connection()
-
-                            if (conn) dialog.show(() => <CreateProjectDialog connection={conn} />)
-                          }}
-                        >
-                          {language.t("session.new.project.new")}
-                        </Menu.Item>
-                      </Menu.Content>
-                    </Menu.Portal>
-                  </Menu>
-                  <IconButton
-                    icon={<Icon name="plus" />}
-                    variant="ghost-muted"
-                    size="small"
-                    aria-label={language.t("session.new.project.new")}
-                    onClick={() => {
-                      const conn = connection()
-
-                      if (conn) dialog.show(() => <CreateProjectDialog connection={conn} />)
-                    }}
-                  />
-                </span>
-              </div>
-              <Show when={!state.projectsCollapsed}>
-                <Show
-                  when={projectCount() > 0}
-                  fallback={
-                    <div class="px-2 pb-1 text-[13px] leading-4 text-v2-text-text-faint">
-                      {language.t("sidebar.organize.noProjects")}
-                    </div>
-                  }
-                >
-                  <div class="flex min-w-0 flex-col gap-1">
-                    <ProjectList
-                      connection={connection()}
-                      state={state}
-                      ready={ready()}
-                      onReorder={(server, ids) => setState("order", server, ids)}
-                      onToggleExpanded={(id) => setState("expanded", id, (value) => value === false)}
-                    />
+          <section class="flex shrink-0 flex-col gap-1">
+            <div class="group flex h-7 w-full shrink-0 items-center gap-1 ps-2 pe-1">
+              <button
+                type="button"
+                class="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[8px] text-start text-[13px] leading-4 text-v2-text-text-muted focus-visible:outline-none"
+                aria-expanded={!state.tasksCollapsed}
+                onClick={() => setState("tasksCollapsed", (value) => !value)}
+              >
+                <span class="min-w-0 truncate">{language.t("sidebar.organize.tasks")}</span>
+                <Show when={tasks().length > 0}>
+                  <span class="shrink-0 text-v2-text-text-faint">({tasks().length})</span>
+                </Show>
+                <Icon
+                  name="fill-triangle-down"
+                  size="small"
+                  class="shrink-0 text-v2-icon-icon-muted transition-transform"
+                  classList={{ "-rotate-90 rtl:rotate-90": state.tasksCollapsed }}
+                />
+              </button>
+            </div>
+            <Show when={!state.tasksCollapsed}>
+              <Show
+                when={tasks().length > 0}
+                fallback={
+                  <div class="px-2 pb-1 text-[13px] leading-4 text-v2-text-text-faint">
+                    {language.t("sidebar.organize.empty")}
                   </div>
+                }
+              >
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <For each={visibleTasks()}>
+                    {(session) => (
+                      <button
+                        type="button"
+                        data-active={taskActive(session) ? "" : undefined}
+                        title={sessionLabel(session)}
+                        class="flex h-8 w-full shrink-0 items-center gap-2 rounded-[8px] px-2 text-start text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none data-[active]:bg-v2-overlay-simple-overlay-hover"
+                        onClick={() => openTask(session)}
+                      >
+                        <span class="min-w-0 flex-1 truncate" dir="auto">
+                          {sessionLabel(session)}
+                        </span>
+                        <span class="shrink-0 text-[11px] leading-[var(--line-height-compact)] text-v2-text-text-faint">
+                          {taskTime(session)}
+                        </span>
+                      </button>
+                    )}
+                  </For>
+                </div>
+                <Show when={tasks().length > TASK_STEP}>
+                  <button
+                    type="button"
+                    class="ms-2 flex h-7 w-fit items-center rounded-[6px] px-1 text-[13px] leading-4 text-v2-text-text-muted hover:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none"
+                    onClick={() => setView("expanded", (value) => !value)}
+                  >
+                    {view.expanded
+                      ? language.t("sidebar.organize.showLess")
+                      : language.t("sidebar.organize.showMoreCount", { count: tasks().length - TASK_STEP })}
+                  </button>
                 </Show>
               </Show>
-            </section>
-          </Show>
+            </Show>
+          </section>
           {/* The 最近 section is gone: the strip stays mounted (tab shortcuts, route sync) but never shows. */}
           <div class="hidden" aria-hidden="true">
             {props.children(() => true)}
           </div>
         </div>
       </ScrollView>
-    </div>
-  )
-}
-
-function ProjectList(props: {
-  connection: ServerConnection.Any | undefined
-  state: typeof SidebarState.Type
-  ready: boolean
-  onReorder: (server: string, ids: string[]) => void
-  onToggleExpanded: (id: string) => void
-}) {
-  const servers = useServers()
-
-  const projectActions = createProjectActions()
-
-  const connection = () => props.connection
-
-  const ctx = useServerCtx(connection)
-
-  const server = () => {
-    const conn = connection()
-
-    return conn ? ServerConnection.key(conn) : undefined
-  }
-
-  const projects = createMemo(() => {
-    const list = ctx()?.projects.used() ?? []
-
-    const order = props.state.order[server() ?? ""] ?? []
-
-    return [
-      ...order.flatMap((id) => list.find((project) => project.id === id) ?? []),
-      ...list.filter((project) => !order.includes(project.id)),
-    ]
-  })
-
-  // Freeze the initial order, then append newly used projects instead of following last activity.
-  createEffect(() => {
-    const key = server()
-
-    if (!props.ready || !servers.hydrated() || !key || !ctx()?.sync.project.ready()) return
-    const ids = projects().map((project) => project.id)
-
-    const saved = props.state.order[key] ?? []
-
-    if (ids.length === saved.length && ids.every((id, index) => id === saved[index])) return
-    untrack(() => props.onReorder(key, ids))
-  })
-
-  return (
-    <>
-      <Show when={connection()}>
-        {(conn) => (
-          <DragDropProvider
-            sensors={[
-              PointerSensor.configure({
-                activationConstraints: [new PointerActivationConstraints.Distance({ value: 4 })],
-                preventActivation: (event) =>
-                  event.target instanceof Element && !!event.target.closest("[data-project-action]"),
-              }),
-            ]}
-            modifiers={[RestrictToVerticalAxis]}
-            plugins={(defaults) => [
-              ...defaults.filter((plugin) => plugin !== Accessibility),
-              Feedback.configure({ dropAnimation: null }),
-            ]}
-            onDragEnd={(event) => {
-              const source = event.operation.source
-
-              if (event.canceled || !isSortable(source) || source.initialIndex === source.index) return
-              props.onReorder(
-                ServerConnection.key(conn()),
-                arrayMove(
-                  projects().map((project) => project.id),
-                  source.initialIndex,
-                  source.index,
-                ),
-              )
-            }}
-          >
-            <Key each={projects()} by={(project) => `${ServerConnection.key(conn())}:${project.id}`}>
-              {(project, index) => (
-                <ProjectRow
-                  project={project()}
-                  server={conn()}
-                  actions={projectActions}
-                  index={index()}
-                  onPin={() => {
-                    const ids = projects().map((entry) => entry.id)
-
-                    props.onReorder(ServerConnection.key(conn()), [
-                      project().id,
-                      ...ids.filter((id) => id !== project().id),
-                    ])
-                  }}
-                />
-              )}
-            </Key>
-          </DragDropProvider>
-        )}
-      </Show>
-    </>
-  )
-}
-
-function ProjectRow(props: {
-  project: Project
-  server: ServerConnection.Any
-  actions: ReturnType<typeof createProjectActions>
-  index: number
-  onPin: () => void
-}) {
-  const language = useLanguage()
-
-  const platform = usePlatform()
-
-  const dialog = useDialog()
-
-  const [menu, setMenu] = createStore({ open: false })
-
-  const sortable = useSortable({
-    get id() {
-      return props.project.id
-    },
-    get index() {
-      return props.index
-    },
-  })
-
-  const hide = () => props.actions.hide(props.server, props.project)
-
-  return (
-    <div class="relative flex shrink-0 flex-col">
-      <div
-        ref={sortable.ref}
-        class="group/project relative flex h-7 min-w-0 shrink-0 items-center rounded-[8px] pe-1 hover:bg-v2-overlay-simple-overlay-hover has-[:focus-visible]:bg-v2-overlay-simple-overlay-hover"
-        onContextMenu={(event) => {
-          event.preventDefault()
-          setMenu("open", true)
-        }}
-        onKeyDown={(event) => {
-          if (event.key !== "ContextMenu" && (event.key !== "F10" || !event.shiftKey)) return
-          event.preventDefault()
-          setMenu("open", true)
-        }}
-      >
-        <button
-          type="button"
-          class="flex h-full min-w-0 flex-1 shrink-0 cursor-default items-center gap-2 rounded-[8px] bg-transparent pe-2 ps-2 text-start text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-base transition-colors duration-[120ms] ease-in-out focus-visible:outline-none"
-          onClick={() => props.actions.openNewSession(props.server, props.project.worktree)}
-        >
-          <Icon name="folder" size="small" class="shrink-0 text-v2-icon-icon-muted" />
-          <span class="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" dir="auto">
-            {displayName(props.project)}
-          </span>
-        </button>
-        <span
-          data-project-action
-          data-menu={menu.open}
-          class="hover-reveal flex shrink-0 items-center gap-1 group-hover/project:opacity-100 focus-within:opacity-100 data-[menu=true]:opacity-100"
-        >
-          <Menu
-            gutter={6}
-            modal={false}
-            placement="bottom-end"
-            open={menu.open}
-            onOpenChange={(open) => setMenu("open", open)}
-          >
-            <Menu.Trigger
-              as={IconButton}
-              variant="ghost-muted"
-              size="small"
-              icon={<Icon name="outline-dots" />}
-              aria-label={language.t("common.moreOptions")}
-            />
-            <Menu.Portal>
-              <Menu.Content>
-                <ProjectMenuItems
-                  server={props.server}
-                  project={props.project}
-                  unread={props.actions.hasUnread(props.server, props.project)}
-                  canImportSession={props.actions.canImportSession}
-                  importingSession={props.actions.importingSession()}
-                  canRevealProject={props.actions.canReveal}
-                  onPinProject={props.onPin}
-                  onShareProject={(_server, project) => {
-                    void Promise.try(() => platform.writeClipboardText?.(project.worktree)).then(() =>
-                      showToast({ title: language.t("project.menu.share.done") }),
-                    )
-                  }}
-                  onOpenProjectWindow={() => {
-                    void platform.runDesktopMenuAction?.("window.new")
-                  }}
-                  onEditProject={props.actions.edit}
-                  onRevealProject={props.actions.reveal}
-                  onArchiveProject={hide}
-                  onDeleteProject={() =>
-                    dialog.show(() => (
-                      <ProjectDeleteDialog
-                        onConfirm={() => {
-                          hide()
-                          showToast({ title: language.t("project.delete.done") })
-                        }}
-                      />
-                    ))
-                  }
-                />
-              </Menu.Content>
-            </Menu.Portal>
-          </Menu>
-          <IconButton
-            icon={<Icon name="edit" />}
-            variant="ghost-muted"
-            size="small"
-            aria-label={language.t("command.session.new")}
-            onClick={() => props.actions.openNewSession(props.server, props.project.worktree)}
-          />
-        </span>
-      </div>
     </div>
   )
 }
