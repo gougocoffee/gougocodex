@@ -1,6 +1,16 @@
-<h1 align="center">gougo codex</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/gougocodex/logo-white.png">
+    <source media="(prefers-color-scheme: light)" srcset=".github/assets/gougocodex/logo.png">
+    <img alt="gougo codex" src=".github/assets/gougocodex/logo.png" width="420">
+  </picture>
+</p>
 
 <p align="center">基于 opencode 的私有分支 —— 界面按 Codex / 豆包 WorkBuddy 风格重做，全中文，桌面版开箱可用。</p>
+
+<p align="center">
+  <img alt="gougocodex 界面" src=".github/assets/gougocodex/screenshot.png" width="860">
+</p>
 
 ---
 

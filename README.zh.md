@@ -1,12 +1,22 @@
-<h1 align="center">gougocodex</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/gougocodex/logo-white.png">
+    <source media="(prefers-color-scheme: light)" srcset=".github/assets/gougocodex/logo.png">
+    <img alt="gougo codex" src=".github/assets/gougocodex/logo.png" width="420">
+  </picture>
+</p>
 
 <p align="center">基于 opencode 的私有分支 —— 界面按 Codex / 豆包 WorkBuddy 风格重做，全中文，桌面版开箱可用。</p>
+
+<p align="center">
+  <img alt="gougocodex 界面" src=".github/assets/gougocodex/screenshot.png" width="860">
+</p>
 
 ---
 
 ## 这是什么
 
-`gougocodex` 是 [anomalyco/opencode](https://github.com/anomalyco/opencode) 的一个 fork，`dev` 分支持续合并上游，自己的改动集中在**桌面端的界面与交互**：
+`gougo codex` 是 [anomalyco/opencode](https://github.com/anomalyco/opencode) 的一个 fork，`dev` 分支持续合并上游，自己的改动集中在**桌面端的界面与交互**：
 
 - 技术栈：Bun monorepo + Electron 桌面壳 + SolidJS 渲染层
 - 目标形态：macOS 上双击即用的「编码代理」，不是跑在终端里的 CLI
