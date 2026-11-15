@@ -920,7 +920,7 @@ export const dict = {
   "settings.experimental.sidebarOrganize.projects": "Projects",
   "settings.experimental.sidebarOrganize.list": "One list",
   "settings.experimental.sidebarOrganize.customize": "Customize",
-  "sidebar.organize.projects": "Projects",
+  "sidebar.organize.projects": "Tasks",
   "sidebar.organize.openTab": "Open tab",
   "sidebar.organize.recents": "Recents",
   "sidebar.organize.noProjects": "No projects",

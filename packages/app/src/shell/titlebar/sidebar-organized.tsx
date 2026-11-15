@@ -24,7 +24,6 @@ import { Persist, persisted } from "@/runtime/persistence/storage"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
 import type { Project } from "@/runtime/server/types"
-import { useCommand } from "@/shell/commands/command"
 import { useLayout } from "@/shell/state/layout"
 import { useTabs, type Tab } from "@/shell/tabs/tabs"
 import "./tab-nav.css"
@@ -89,15 +88,11 @@ export function SidebarOrganized(props: {
 }) {
   const language = useLanguage()
 
-  const tabs = useTabs()
-
   createSidebarActivityListener()
 
   const connection = useSidebarConnection(() => props.currentTab)
 
   const ctx = useServerCtx(connection)
-
-  const command = useCommand()
 
   const dialog = useDialog()
 
@@ -141,6 +136,9 @@ export function SidebarOrganized(props: {
                   onClick={() => setState("projectsCollapsed", (value) => !value)}
                 >
                   <span class="min-w-0 truncate">{language.t("sidebar.organize.projects")}</span>
+                  <Show when={projectCount() > 0}>
+                    <span class="shrink-0 text-v2-text-text-faint">({projectCount()})</span>
+                  </Show>
                   <Icon
                     name="fill-triangle-down"
                     size="small"
@@ -217,37 +215,9 @@ export function SidebarOrganized(props: {
               </Show>
             </section>
           </Show>
-          <div class="flex shrink-0 flex-col gap-1" classList={{ hidden: tabs.store.length === 0 }}>
-            <Show when={projectsReady()}>
-              {/* Names the tabs the way the project header names the rows above them. */}
-              <div class="group flex h-7 items-center gap-1 ps-2 pe-1">
-                <button
-                  type="button"
-                  class="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[8px] text-start text-[13px] leading-4 text-v2-text-text-muted focus-visible:outline-none"
-                  aria-expanded={!state.recentsCollapsed}
-                  onClick={() => setState("recentsCollapsed", (value) => !value)}
-                >
-                  <span class="min-w-0 truncate">{language.t("sidebar.organize.recents")}</span>
-                  <Icon
-                    name="fill-triangle-down"
-                    size="small"
-                    class="shrink-0 text-v2-icon-icon-muted transition-transform"
-                    classList={{ "-rotate-90 rtl:rotate-90": state.recentsCollapsed }}
-                  />
-                </button>
-                <span class="flex shrink-0 items-center">
-                  <IconButton
-                    icon={<Icon name="edit" />}
-                    variant="ghost-muted"
-                    size="small"
-                    aria-label={language.t("command.session.new")}
-                    onClick={() => command.trigger("tab.new")}
-                  />
-                </span>
-              </div>
-            </Show>
-            {/* The empty strip still owns tab shortcuts; only its visual section is hidden. */}
-            <div classList={{ hidden: state.recentsCollapsed }}>{props.children(() => true)}</div>
+          {/* The 最近 section is gone: the strip stays mounted (tab shortcuts, route sync) but never shows. */}
+          <div class="hidden" aria-hidden="true">
+            {props.children(() => true)}
           </div>
         </div>
       </ScrollView>

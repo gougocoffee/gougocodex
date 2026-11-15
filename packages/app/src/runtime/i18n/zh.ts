@@ -713,7 +713,7 @@ export const dict = {
   "project.delete.confirm": "删除后，这些任务将从你的所有设备中移除，且无法恢复。",
   "project.delete.button": "确认",
   "project.delete.done": "已从侧栏移除",
-  "sidebar.organize.projects": "项目",
+  "sidebar.organize.projects": "任务",
   "sidebar.organize.openTab": "打开标签页",
   "sidebar.organize.recents": "最近",
   "sidebar.organize.noProjects": "暂无项目",
