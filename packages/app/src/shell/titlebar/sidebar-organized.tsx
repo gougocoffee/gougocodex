@@ -8,7 +8,7 @@ import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { ScrollView } from "@opencode/ui/scroll-view"
 import { useDialog } from "@opencode/ui/context/dialog"
-import { homeSessionsQuery } from "@/home/sessions/queries"
+import { homeSessionsQuery, archivedSessionsQuery } from "@/home/sessions/queries"
 import { ProjectDeleteDialog } from "@/home/projects/delete-dialog"
 import { ProjectMenuItems } from "@/home/projects/menu"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -35,6 +35,7 @@ const TASK_STEP = 5
 const SidebarState = Persistence.struct({
   projectsCollapsed: Schema.Boolean,
   tasksCollapsed: Persistence.fallback(Schema.Boolean, () => false),
+  archivedCollapsed: Persistence.fallback(Schema.Boolean, () => true),
   recentsCollapsed: Persistence.fallback(Schema.Boolean, () => false),
   expanded: Persistence.record(Schema.Boolean),
   order: Persistence.record(Schema.mutable(Schema.Array(Schema.String))),
@@ -112,11 +113,14 @@ export function SidebarOrganized(props: {
 
   const sessionActions = createProjectSessionActions()
 
-  const recentQueries = useQueries(() => ({ queries: [homeSessionsQuery(connection(), ctx())] }))
+  const recentQueries = useQueries(() => ({
+    queries: [homeSessionsQuery(connection(), ctx()), archivedSessionsQuery(connection(), ctx())],
+  }))
 
   const [state, setState] = persisted(Persist.global("sidebar.organize"), SidebarState, {
     projectsCollapsed: false,
     tasksCollapsed: false,
+    archivedCollapsed: true,
     recentsCollapsed: false,
     expanded: {},
     order: {},
@@ -172,6 +176,25 @@ export function SidebarOrganized(props: {
   })
 
   const visibleTasks = () => (view.expanded ? tasks() : tasks().slice(0, TASK_STEP))
+
+  // Archived sessions come from the second query; newest-archived first so the most recently hidden one is on top.
+  const archivedTasks = createMemo(() => {
+    const fetched = recentQueries[1]?.data?.() ?? []
+
+    return fetched
+      .filter((session) => !session.parentID && session.time.archived !== undefined)
+      .sort((a, b) => (b.time.archived ?? 0) - (a.time.archived ?? 0))
+  })
+
+  const archiveTime = (session: SessionInfo) => {
+    now()
+
+    return getRelativeTime(
+      new Date(session.time.archived ?? session.time.updated).toISOString(),
+      language.t,
+      language.intl(),
+    )
+  }
 
   const taskTime = (session: SessionInfo) => {
     now()
@@ -271,6 +294,51 @@ export function SidebarOrganized(props: {
     ))
   }
 
+  const unarchiveTask = (session: SessionInfo) => {
+    const current = ctx()
+
+    const conn = connection()
+
+    const key = server()
+
+    if (!current || !conn || !key) return
+
+    void current.sdk.api.session.update({ sessionID: session.id, archived: false }).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["home-sessions", conn], exact: true })
+      void queryClient.invalidateQueries({ queryKey: ["archived-sessions", conn], exact: true })
+    })
+  }
+
+  const deleteArchivedTask = (session: SessionInfo) => {
+    const current = ctx()
+
+    const conn = connection()
+
+    const key = server()
+
+    if (!current || !conn || !key) return
+
+    dialog.show(() => (
+      <ProjectDeleteDialog
+        onConfirm={() => {
+          void current.data.session.remove(session.id).then(() => {
+            queryClient.setQueryData<SessionInfo[]>(["archived-sessions", conn], (list) =>
+              list?.filter((item) => item.id !== session.id),
+            )
+            void queryClient.invalidateQueries({ queryKey: ["archived-sessions", conn], exact: true })
+            void queryClient.invalidateQueries({ queryKey: ["home-sessions", conn], exact: true })
+            notifySessionTabsRemoved({
+              server: key,
+              directory: session.location.directory,
+              sessionIDs: [session.id],
+            })
+            showToast({ title: language.t("project.delete.done") })
+          })
+        }}
+      />
+    ))
+  }
+
   function TaskRow(row: { session: SessionInfo }) {
     const session = () => row.session
 
@@ -353,6 +421,39 @@ export function SidebarOrganized(props: {
     )
   }
 
+  function ArchivedTaskRow(row: { session: SessionInfo }) {
+    const session = () => row.session
+
+    return (
+      <div class="group/task relative flex h-8 w-full shrink-0 items-center rounded-[8px] pe-1 hover:bg-v2-overlay-simple-overlay-hover">
+        <div class="flex h-full min-w-0 flex-1 items-center gap-2 rounded-[8px] ps-2 text-start text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-muted">
+          <span class="min-w-0 flex-1 truncate" dir="auto">
+            {sessionLabel(session())}
+          </span>
+          <span class="shrink-0 text-[11px] leading-[var(--line-height-compact)] text-v2-text-text-faint">
+            {archiveTime(session())}
+          </span>
+        </div>
+        <span class="hover-reveal flex shrink-0 items-center ps-1 group-hover/task:opacity-100 focus-within:opacity-100">
+          <IconButton
+            variant="ghost-muted"
+            size="small"
+            icon={<Icon name="refresh" />}
+            aria-label={language.t("sidebar.inbox.unarchive")}
+            onClick={() => unarchiveTask(session())}
+          />
+          <IconButton
+            variant="ghost-muted"
+            size="small"
+            icon={<Icon name="trash" />}
+            aria-label={language.t("common.delete")}
+            onClick={() => deleteArchivedTask(session())}
+          />
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div
       ref={(element) => setLocal("hoverTarget", element)}
@@ -413,6 +514,34 @@ export function SidebarOrganized(props: {
               </Show>
             </Show>
           </section>
+          <Show when={archivedTasks().length > 0}>
+            <section class="flex shrink-0 flex-col gap-1">
+              <div class="group flex h-7 w-full shrink-0 items-center gap-1 ps-2 pe-1">
+                <button
+                  type="button"
+                  class="flex h-full min-w-0 flex-1 items-center gap-1.5 rounded-[8px] text-start text-[13px] leading-4 text-v2-text-text-muted focus-visible:outline-none"
+                  aria-expanded={!state.archivedCollapsed}
+                  onClick={() => setState("archivedCollapsed", (value) => !value)}
+                >
+                  <span class="min-w-0 truncate">{language.t("sidebar.inbox.section.archived")}</span>
+                  <Show when={archivedTasks().length > 0}>
+                    <span class="shrink-0 text-v2-text-text-faint">({archivedTasks().length})</span>
+                  </Show>
+                  <Icon
+                    name="fill-triangle-down"
+                    size="small"
+                    class="shrink-0 text-v2-icon-icon-muted transition-transform"
+                    classList={{ "-rotate-90 rtl:rotate-90": state.archivedCollapsed }}
+                  />
+                </button>
+              </div>
+              <Show when={!state.archivedCollapsed}>
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <For each={archivedTasks()}>{(session) => <ArchivedTaskRow session={session} />}</For>
+                </div>
+              </Show>
+            </section>
+          </Show>
           {/* The 最近 section is gone: the strip stays mounted (tab shortcuts, route sync) but never shows. */}
           <div class="hidden" aria-hidden="true">
             {props.children(() => true)}
