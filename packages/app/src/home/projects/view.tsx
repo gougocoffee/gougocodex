@@ -44,6 +44,9 @@ const signInRequired = (server: ServerConnection.Any, health: ServerHealth | und
 
 const connecting = (server: ServerConnection.Any) => server.type === "plugin" && server.status.type === "starting"
 
+// Rows for actions only the sidebar host can perform; a host that does not wire them renders inert items.
+const noop = () => {}
+
 const projectContextMenuID = (server: ServerConnection.Any, directory: string) =>
   `project:${ServerConnection.key(server)}:${directory}`
 
@@ -76,6 +79,13 @@ export type HomeProjectsViewProps = {
   onImportSession: (server: ServerConnection.Any, project: LocalProject) => void
   onEditProject: (server: ServerConnection.Any, project: LocalProject) => void
   onRevealProject: (server: ServerConnection.Any, project: LocalProject) => void
+  // The sidebar owns these project actions; the legacy home view only renders the menu, so a host that does not
+  // wire them (the plugin story mock) still type-checks and simply gets inert rows.
+  onPinProject?: (server: ServerConnection.Any, project: LocalProject) => void
+  onShareProject?: (server: ServerConnection.Any, project: LocalProject) => void
+  onOpenProjectWindow?: (server: ServerConnection.Any, project: LocalProject) => void
+  onArchiveProject?: (server: ServerConnection.Any, project: LocalProject) => void
+  onDeleteProject?: (server: ServerConnection.Any, project: LocalProject) => void
   onClearNotifications: (server: ServerConnection.Any, project: LocalProject) => void
   onHideProject: (server: ServerConnection.Any, project: LocalProject) => void
   onOpenSettings: () => void
@@ -658,7 +668,21 @@ function HomeProjectRow(
           />
           <Menu.Portal>
             <Menu.Content>
-              <ProjectMenuItems {...props} />
+              <ProjectMenuItems
+                server={props.server}
+                project={props.project}
+                unread={props.hasUnread(props.server, props.project)}
+                canImportSession={props.canImportSession}
+                importingSession={props.importingSession}
+                canRevealProject={props.canRevealProject}
+                onPinProject={props.onPinProject ?? noop}
+                onShareProject={props.onShareProject ?? noop}
+                onOpenProjectWindow={props.onOpenProjectWindow ?? noop}
+                onRevealProject={props.onRevealProject}
+                onEditProject={props.onEditProject}
+                onArchiveProject={props.onArchiveProject ?? noop}
+                onDeleteProject={props.onDeleteProject ?? noop}
+              />
             </Menu.Content>
           </Menu.Portal>
         </Menu>
