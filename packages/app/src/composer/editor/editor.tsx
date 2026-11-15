@@ -1351,7 +1351,8 @@ function ComposerEditorSelect(props: {
                           <span class="pointer-events-none absolute left-[6px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-white/75" />
                           <span class="pointer-events-none absolute right-[6px] top-1/2 size-[3px] -translate-y-1/2 rounded-full bg-[#c9c9c9]" />
                           <span
-                            class="pointer-events-none absolute top-1/2 size-[30px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_5px_rgba(0,0,0,0.22),0_0_0_0.5px_rgba(0,0,0,0.06)]"
+                            data-slot="effort-knob"
+                            class="pointer-events-none absolute top-1/2 size-[30px] -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_1px_5px_rgba(0,0,0,0.22),0_0_0_0.5px_rgba(0,0,0,0.06)]"
                             classList={{ "transition-[left] duration-150": dragRatio() === undefined }}
                             style={{ left: `${ratio() * 100}%` }}
                           />

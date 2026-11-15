@@ -307,19 +307,30 @@ body:has(.settings-screen) .settings-screen {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Model picker: list + detail side by side (Codex/Qoder style)
-   The old hover popover was fixed-positioned inside an overflow:hidden dialog and
-   constrained to 160px, so it showed up clipped. The detail panel now lives inside
-   the dialog as a permanent second column.
+   Model picker: a narrow list with the intro card floating beside it
+   The stage itself is transparent; hovering a row pops that model's card to the
+   left of the list, the way Codex's picker does.
    ───────────────────────────────────────────────────────────────────────────── */
 /* Codex's picker is a narrow list with the detail card floating beside it, so the dialog
    box is only a transparent stage: the list panel and the card are the real surfaces. */
+/* No scrim: Codex's model picker is a popover over the conversation, not a modal page. */
+body:has(.model-dialog) [data-component="dialog-overlay"] {
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 [data-component="dialog-v2"] [data-slot="dialog-container"].model-dialog-shell {
+  /* 340 panel + 6 margin + 14 gap + 288 card, plus 12px of slack so the card's shadow is not clipped. */
   width: 660px !important;
   /* Tall enough for the detail card, so neither panel gets clipped by the stage. */
-  height: 430px !important;
-  max-height: calc(100vh - 140px);
+  height: 452px !important;
+  max-height: calc(100vh - 220px);
   max-width: calc(100vw - 80px);
+  /* Hung off the composer: the script sets right and bottom from its rect; these are the fallbacks. */
+  position: fixed !important;
+  inset: auto 16px 120px auto;
+  margin: 0 !important;
   border-radius: 0;
   background: transparent !important;
   background-image: none !important;
@@ -335,6 +346,7 @@ body:has(.settings-screen) .settings-screen {
   height: 100% !important;
   background: transparent !important;
   overflow: hidden;
+  animation: none !important;
 }
 
 /* The list is the only opaque surface inside the stage; the card floats to its left. */
@@ -342,27 +354,38 @@ body:has(.settings-screen) .settings-screen {
   position: relative;
   display: flex;
   align-self: stretch;
-  flex: 0 0 360px;
-  width: 360px;
-  height: 100%;
+  flex: 1 1 auto;
+  width: 340px;
+  height: auto;
   min-height: 0;
   margin-left: auto;
   margin-right: 6px;
-  border-radius: 16px;
+  border-radius: 14px;
   background: #ffffff !important;
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.2),
-    0 2px 10px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  /* A real border: the stage clips anything drawn outside the panel, so the outline must live in its box. */
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
   opacity: 1 !important;
   isolation: isolate;
+}
+
+/* The stage is empty space: only the panel and its card take clicks, so pressing anywhere
+   else falls through to the backdrop and dismisses the picker. */
+[data-slot="dialog-container"].model-dialog-shell,
+[data-slot="dialog-content"].model-dialog {
+  pointer-events: none !important;
+}
+
+[data-slot="model-dialog-split"],
+[data-slot="model-dialog-flyout"] {
+  pointer-events: auto;
 }
 
 [data-component="dialog-v2"] [data-slot="model-dialog-split"] > [data-slot="dialog-body"] {
   flex: 1 1 0 !important;
   width: auto !important;
   min-width: 0;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   background: #ffffff !important;
   opacity: 1 !important;
@@ -376,15 +399,12 @@ body:has(.settings-screen) .settings-screen {
   right: calc(100% + 14px);
   left: auto !important;
   flex: none !important;
-  width: 280px !important;
+  width: 288px !important;
   height: auto !important;
   max-height: 100% !important;
-  border-radius: 16px !important;
-  border: none !important;
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.16),
-    0 2px 8px rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 14px !important;
+  box-sizing: border-box !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
   background: #ffffff !important;
   background-image: none !important;
   opacity: 1 !important;
@@ -395,35 +415,10 @@ body:has(.settings-screen) .settings-screen {
   overflow: hidden;
 }
 
-[data-slot="model-dialog-split"] > [data-slot="model-dialog-flyout"] [data-component="menu-scroll"] {
-  height: auto;
-  max-height: 100%;
-}
-
-[data-slot="model-detail-heading"] {
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-/* The effort flyout is a canvas, not a list: drop the menu padding so the track can
-   reach the panel's edges the way Codex's does. */
 [data-slot="model-dialog-flyout"] {
   padding: 0;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
-}
-
-[data-slot="model-dialog-flyout"] [data-slot="model-dialog-effort"] {
-  display: block;
-}
-
-/* Rows below the effort canvas keep the menu's usual inset now that the panel is flush. */
-[data-slot="model-dialog-flyout"] [data-slot="menu-v2-separator"] {
-  margin-inline: 10px;
-}
-
-[data-slot="model-dialog-flyout"] [data-component="menu-v2-item"] {
-  margin-inline: 6px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -462,6 +457,12 @@ body:has(.settings-screen) .settings-screen {
 [data-slot="effort-slider"] {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* The knob is an opaque white puck: its utility background never applied, so the track
+   showed through it and the thumb read as translucent. */
+[data-slot="effort-knob"] {
+  background-color: #ffffff !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -624,21 +625,21 @@ body:has(.settings-screen) .settings-screen {
 [data-slot="model-dialog-tabs"] {
   display: flex;
   flex: 0 0 auto;
-  gap: 4px;
-  margin: 2px 12px 8px;
-  padding: 3px;
-  border-radius: 10px;
-  background: #f4f4f5;
+  gap: 2px;
+  margin: 10px 10px 6px;
+  padding: 2px;
+  border-radius: 9px;
+  background: #f2f2f3;
 }
 
 [data-slot="model-dialog-tab"] {
   flex: 1;
   height: 28px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   color: #6b6b6b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -646,15 +647,16 @@ body:has(.settings-screen) .settings-screen {
 [data-slot="model-dialog-tab"][data-active] {
   background: #ffffff;
   color: #1a1a1a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 [data-slot="model-dialog-footer"] {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  padding: 8px 16px 10px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 4px 6px 6px;
   background: #ffffff !important;
 }
 
@@ -662,49 +664,99 @@ body:has(.settings-screen) .settings-screen {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 4px;
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
-  color: #6b6b6b;
-  font-size: 12px;
+  color: #4a4a4a;
+  font-size: 13px;
   cursor: pointer;
 }
 
 [data-slot="model-dialog-footer"] button:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
   color: #1a1a1a;
 }
 
 [data-slot="model-new-badge"] {
   flex-shrink: 0;
-  padding: 1px 6px;
-  border-radius: 5px;
+  padding: 0 5px;
+  border-radius: 4px;
   background: #e8f6ec;
   color: #1a8a4b;
   font-size: 10px;
   font-weight: 600;
-  line-height: 15px;
+  line-height: 16px;
 }
 
 [data-slot="model-dialog-variant"] {
   justify-content: flex-end;
-  color: #8a8a8a !important;
+  color: #a3a3a3 !important;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
+/* The hover card: title, description, price note, then the effort tiers behind a dashed rule. */
 [data-slot="model-detail-card"] {
-  padding-bottom: 4px;
+  padding: 16px;
 }
 
-[data-slot="model-detail-price"] {
+[data-slot="model-detail-copy"] {
   margin-top: 8px;
-  color: #8a8a8a;
-  font-size: 11px;
-  line-height: 16px;
+  color: #5f5f5f;
+  font-size: 12px;
+  line-height: 18px;
 }
 
-[data-slot="model-effort-stops"] span {
-  min-width: 28px;
-  text-align: center;
+[data-slot="model-detail-note"] {
+  margin-top: 8px;
+  color: #9a9a9a;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+[data-slot="model-detail-effort"] {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.14);
+}
+
+[data-slot="model-detail-effort-label"] {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #8f8f8f;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+[data-slot="model-detail-effort-options"] {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+[data-slot="model-detail-effort-option"] {
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4a4a4a;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+[data-slot="model-detail-effort-option"]:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
+}
+
+[data-slot="model-detail-effort-option"][data-active] {
+  background: #f0f0f1;
+  color: #1a1a1a;
+  font-weight: 500;
 }
 

@@ -5,7 +5,8 @@ type ModelInfo = NonNullable<ReturnType<ModelSelection["current"]>>
 /**
  * Catalog copy for the model dialog, matched against provider id + model id + display name.
  *
- * Prices come from https://platform.kimi.com/docs/pricing/chat (¥ per 1M tokens, input / output).
+ * Prices come from https://platform.kimi.com/docs/pricing/chat and
+ * https://api-docs.deepseek.com/zh-cn/quick_start/pricing/ (¥ per 1M tokens, input / output).
  * The "×" figure is the input price relative to kimi-k3.1-pro (¥13), which is 1× — the same
  * relative-cost column Codex shows next to each model.
  * Descriptions come from https://platform.kimi.com/docs/models and the vendor docs.
@@ -63,6 +64,22 @@ const ENTRIES: Entry[] = [
       "上一代旗舰模型，全球首个开源的 3 万亿级模型（2.8 万亿参数）；原生支持视觉理解，100 万 token 上下文窗口，面向长程编程、知识工作和深度推理等前沿智能场景而设计。",
     ratio: "1.5×",
     price: "¥20 / ¥100 每百万 token",
+  },
+  {
+    // DeepSeek: https://api-docs.deepseek.com/zh-cn/quick_start/pricing/ — ¥2 input (peak, cache miss)
+    // over the ¥13 flagship baseline.
+    keys: ["deepseek-v4.1-flash", "deepseek-v4-flash", "v4.1-flash", "v4.1 flash", "v4-flash"],
+    description:
+      "DeepSeek V4.1 Flash（V4.1-Flash-1017）：通过自反馈强化学习提升了从零构建完整项目的能力，游戏开发、3D 建模等「许愿式」编程任务表现更好；同时缩短任务耗时与输出长度，在多个 Harness 下达到新的性能–费用帕累托最优。原生支持图像理解，1M 上下文、最长输出 384K。",
+    ratio: "0.2×",
+    price: "¥2 / ¥8 每百万 token（闲时半价）",
+  },
+  {
+    keys: ["deepseek-v4-pro", "v4-pro", "v4 pro"],
+    description:
+      "DeepSeek V4 Pro 正式版（V4-Pro-0813）：Agent 能力大幅提升，生产环境表现尤为显著；原生支持 OpenAI Responses API 并针对 Codex 做了适配，支持 low / high / max 三档思考强度。1M 上下文、最长输出 384K。",
+    ratio: "0.7×",
+    price: "¥9 / ¥27 每百万 token（闲时半价）",
   },
   {
     keys: ["deepseek"],
