@@ -126,7 +126,7 @@ export function NewSessionView(props: {
         <div class="absolute inset-x-0 bottom-0 flex justify-center px-6 pb-7">
           <div class={NEW_SESSION_CONTENT_WIDTH}>
             <div class="flex flex-col gap-3">
-              <div data-slot="new-session-composer" class="flex flex-col gap-1">
+              <div data-slot="new-session-composer" class="flex flex-col gap-2">
                 <Show when={props.project.selected()}>
                   {(project) => (
                     <NewSessionLocation
@@ -352,7 +352,7 @@ function NewSessionLocation(props: {
       : (props.workspace.split(/[\\/]/).filter(Boolean).at(-1) ?? props.workspace)
 
   return (
-    <div class="relative flex h-9 min-h-9 min-w-0 items-center gap-1 rounded-t-[12px] bg-[#f4f4f4] px-1.5 text-[12.5px] font-[440] leading-[var(--line-height-compact)] tracking-[-0.04px]">
+    <div class="relative flex h-9 min-h-9 min-w-0 items-center gap-1 rounded-[12px] bg-[#f4f4f4] px-1.5 text-[12.5px] font-[440] leading-[var(--line-height-compact)] tracking-[-0.04px]">
       <div class="flex min-w-0 max-w-full items-center gap-0.5">
         <Tooltip
           placement="top"

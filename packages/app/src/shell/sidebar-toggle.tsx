@@ -42,7 +42,7 @@ export function macVerticalTrafficLights(zoom: number) {
   return { x, y, width: x + macTrafficLightsBaseWidth - 14 }
 }
 
-const macTrafficLightsGap = 10
+const macTrafficLightsGap = 18
 
 // The toggle's 28px plus a 4px gap before the header contents.
 const slotWidth = 32
@@ -231,7 +231,7 @@ export function CollapsedSidebarToggle() {
       <div
         data-slot="collapsed-sidebar-toggle"
         style={{ width: `${slot.width()}px` }}
-        class={`absolute top-[calc(var(--shell-top-inset,8px)+10px)] start-[calc(var(--shell-inline-inset,8px)+10px)] z-40 flex shrink-0 justify-end`}
+        class={`absolute top-[var(--shell-top-inset,8px)] start-[calc(var(--shell-inline-inset,8px)+10px)] z-40 flex shrink-0 justify-end`}
         inert={slot.open()}
       >
         <div class="flex shrink-0 pe-1">

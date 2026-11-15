@@ -1,6 +1,6 @@
 import { consoleProviderGroup, consoleProviderName } from "@/providers/catalog/console"
 
-export type ComposerModelLabel = { provider?: string; model: string }
+export type ComposerModelLabel = { providerID?: string; provider?: string; model: string }
 
 type Provider = {
   id: string
@@ -80,7 +80,7 @@ export function composerModelLabels(
       const same = peers.filter((other) => other.providerID === row.providerID).map((other) => other.modelID)
       const suffix = same.length > 1 ? row.modelID.slice(sharedPrefix(same)).replace(/^[-_./:]+/, "") : ""
 
-      return [row.key, { provider, model: suffix ? `${row.model} (${suffix})` : row.model }]
+      return [row.key, { providerID: row.providerID, provider, model: suffix ? `${row.model} (${suffix})` : row.model }]
     }),
   )
 }

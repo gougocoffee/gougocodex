@@ -15,6 +15,7 @@ import { formatKeybind, useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { ComposerModel } from "./model"
 import type { ComposerModelLabel } from "./model-label"
+import { ComposerPermissionControl } from "./permission-control"
 import {
   createModelChipState,
   selectModelChipPending,
@@ -54,7 +55,12 @@ export function Composer(props: {
 
     if (label) return label
 
-    return { provider: preview ? preview.provider : props.model.model.providerName, model: modelName() }
+    return {
+      provider: preview ? preview.provider : props.model.model.providerName,
+      model: modelName(),
+      // The icon prefers the real providerID; a preview without a matched catalog entry has none to give.
+      providerID: preview ? undefined : props.model.model.selection.key()?.providerID,
+    }
   }
 
   return (
@@ -72,6 +78,11 @@ export function Composer(props: {
         queueFirstLabel={language.t("session.queue.first")}
         exitShellKeybind={[formatKeybind("esc", language.t)]}
         suggestionBoundary={props.suggestionBoundary}
+        permissionControl={
+          <Show when={props.model.permission}>
+            {(permission) => <ComposerPermissionControl permission={permission()} onClose={props.model.restoreFocus} />}
+          </Show>
+        }
         modelControl={
           <ComposerModelControl
             loading={props.model.model.loading}
@@ -161,12 +172,12 @@ function ComposerModelControl(props: {
   const content = () => (
     <>
       <span class="flex min-w-0 items-center gap-1.5 whitespace-nowrap leading-4">
-        {/* Codex puts the vendor's mark before the model name. Native/gateway models have
-            no provider label at all, so the icon is derived from the model name itself and
-            must render even when the provider text is empty. */}
+        {/* Codex puts the vendor's mark before the model name. The label's providerID is the real provider,
+            so a renamed or reselling provider still shows the vendor's own logo; a label without one (the
+            unloaded fallback) keeps the guess from the display name. */}
         <ProviderModelIcon
           provider={{
-            id: (props.label.provider ?? "").toLowerCase().replace(/\s+/g, "-"),
+            id: props.label.providerID ?? (props.label.provider ?? "").toLowerCase().replace(/\s+/g, "-"),
             name: props.label.provider ?? "",
           }}
           modelName={props.label.model}

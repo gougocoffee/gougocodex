@@ -24,6 +24,28 @@ function CustomManagedProviderIcon(props: { class?: string }) {
   return <img data-component="custom-managed-provider-icon" src={customManagedProvider} alt="" class={props.class} />
 }
 
+// Model families whose sprite entry is filed under a different id than the vendor token in the
+// model name: the picker says "GLM-5.3-Flash", the sprite calls it zhipuai; "LongCat" is meituan,
+// "MiMo" is xiaomi, "Nemotron" is nvidia. Longest token wins, so "nemotron" is not read as "nvidia".
+const vendorHints: ReadonlyArray<readonly [string, IconName]> = [
+  ["nemotron", "nvidia"],
+  ["longcat", "meituan"],
+  ["minimax", "minimax"],
+  ["deepseek", "deepseek"],
+  ["moonshot", "moonshotai"],
+  ["mistral", "mistral"],
+  ["stepfun", "stepfun"],
+  ["gemini", "google"],
+  ["claude", "anthropic"],
+  ["llama", "meta"],
+  ["qwen", "alibaba"],
+  ["mimo", "xiaomi"],
+  ["kimi", "moonshotai"],
+  ["grok", "xai"],
+  ["glm", "zhipuai"],
+  ["gpt", "openai"],
+]
+
 export function ProviderModelIcon(props: { provider: ModelProvider; modelName?: string; class?: string }) {
   // Models resold through a gateway all share that gateway's provider id, so the provider
   // mark alone would render every one of them identically. Guess the real vendor from the
@@ -33,11 +55,17 @@ export function ProviderModelIcon(props: { provider: ModelProvider; modelName?: 
 
     if (!slug) return undefined
 
-    return iconNames.find((name) => {
-      const key = name.toLowerCase().replace(/[^a-z0-9]/g, "")
+    const hinted = vendorHints.find(([token]) => slug.includes(token))
 
-      return key.length >= 3 && slug.includes(key)
-    })
+    if (hinted) return hinted[1]
+
+    // Nothing in the hint table: keep the plain scan, but take the longest match so a model named
+    // "minimax" is not claimed by a shorter provider id that happens to sit inside it.
+    return [...iconNames]
+      .map((name) => [name, name.toLowerCase().replace(/[^a-z0-9]/g, "")] as const)
+      .filter(([, key]) => key.length >= 3 && slug.includes(key))
+      .sort(([, left], [, right]) => right.length - left.length)
+      .at(0)?.[0]
   }
 
   const icon = () =>

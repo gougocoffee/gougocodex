@@ -192,7 +192,11 @@ const ModelList: Component<{
               <div data-slot="settings-row-copy">
                 <div data-slot="settings-row-title" class="flex items-center gap-2">
                   <span class="grid size-[18px] shrink-0 place-items-center rounded-[4px] bg-neutral-100">
-                    <ProviderModelIcon provider={item.provider} class="size-[13px] text-neutral-700" />
+                    <ProviderModelIcon
+                      provider={item.provider}
+                      modelName={item.name}
+                      class="size-[13px] text-neutral-700"
+                    />
                   </span>
                   <Tooltip
                     inactive={props.mobile}

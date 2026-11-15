@@ -511,6 +511,31 @@ export const dict = {
   "toast.permissions.autoaccept.off.title": "Stopped auto-accepting permissions",
   "toast.permissions.autoaccept.off.description": "Permission requests will require approval",
 
+  "composer.permissions.default.label": "Default permission",
+  "composer.permissions.fullAccess.label": "Allow full access",
+  "composer.permissions.fullAccess.on":
+    "Full access is currently on. Keep your data safe and only run tasks you trust.",
+  "composer.permissions.fullAccess.off":
+    "Default permission is on: every action runs inside the safety sandbox, and anything beyond it asks for your approval.",
+  "composer.permissions.fullAccess.tooltip":
+    "Turning this on reduces confirmation steps and lets the AI act directly. It may involve sensitive operations, file changes, or external execution.",
+  "composer.permissions.fullAccess.serverWide": "Applies to every project on this server until a project setting overrides it.",
+  "composer.permissions.confirm.title": "Allow full access?",
+  "composer.permissions.confirm.description":
+    "With full access on, tasks skip confirmation steps and act on your computer directly. Proceed carefully. This covers:",
+  "composer.permissions.confirm.files.title": "File operations",
+  "composer.permissions.confirm.files.description":
+    "Read, create, modify, upload, or delete files anywhere on this computer",
+  "composer.permissions.confirm.terminal.title": "Terminal commands",
+  "composer.permissions.confirm.terminal.description":
+    "Run commands, install software, and change system settings",
+  "composer.permissions.confirm.network.title": "Internet access",
+  "composer.permissions.confirm.network.description":
+    "Visit websites, send data, and use the connectors you have enabled",
+  "composer.permissions.confirm.checkbox":
+    "I understand the risks and take responsibility for my data security",
+  "composer.permissions.confirm.action": "Allow full access",
+
   "toast.file.loadFailed.title": "Failed to load file",
   "toast.language.loadFailed.title": "Failed to load {{language}}",
   "toast.file.listFailed.title": "Failed to list files",

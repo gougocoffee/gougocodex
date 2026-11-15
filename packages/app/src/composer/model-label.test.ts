@@ -34,7 +34,11 @@ test.each([
   const all = catalog(native)
 
   expect(composerProviderName("opencode", all)).toBeUndefined()
-  expect(label(composerModelLabels(all), "opencode", "m")).toEqual({ provider: undefined, model: "Model" })
+  expect(label(composerModelLabels(all), "opencode", "m")).toEqual({
+    providerID: "opencode",
+    provider: undefined,
+    model: "Model",
+  })
 })
 
 test.each([
@@ -56,6 +60,7 @@ test.each([
 
   expect(composerProviderName(managed.id, all, [managed.id, ...row.connected])).toBe(row.expected)
   expect(label(composerModelLabels(all, [managed.id, ...row.connected]), managed.id, "m")).toEqual({
+    providerID: managed.id,
     provider: row.expected,
     model: "Model",
   })
@@ -64,7 +69,7 @@ test.each([
 test("only connected providers get labels", () => {
   const labels = composerModelLabels(catalog(root, managed, provider("openai", "OpenAI")), [managed.id])
 
-  expect(label(labels, managed.id, "m")).toEqual({ provider: "OpenAI", model: "Model" })
+  expect(label(labels, managed.id, "m")).toEqual({ providerID: managed.id, provider: "OpenAI", model: "Model" })
   expect(label(labels, "openai", "m")).toBeUndefined()
 })
 
@@ -76,7 +81,11 @@ test("unknown managed routes do not infer identity from console prefixes or disp
   )
 
   expect(composerProviderName("console-openai", all)).toBe("OpenAI")
-  expect(label(composerModelLabels(all), "console-openai", "m")).toEqual({ provider: "console-openai", model: "Model" })
+  expect(label(composerModelLabels(all), "console-openai", "m")).toEqual({
+    providerID: "console-openai",
+    provider: "console-openai",
+    model: "Model",
+  })
 })
 
 test("duplicate provider labels use raw IDs only for overlapping model labels", () => {
@@ -92,9 +101,9 @@ test("duplicate provider labels use raw IDs only for overlapping model labels", 
     ),
   )
 
-  expect(label(labels, "a", "m")).toEqual({ provider: "a", model: "Model" })
-  expect(label(labels, "b", "m")).toEqual({ provider: "b", model: "Model" })
-  expect(label(labels, "a", "other")).toEqual({ provider: "OpenAI", model: "Other" })
+  expect(label(labels, "a", "m")).toEqual({ providerID: "a", provider: "a", model: "Model" })
+  expect(label(labels, "b", "m")).toEqual({ providerID: "b", provider: "b", model: "Model" })
+  expect(label(labels, "a", "other")).toEqual({ providerID: "a", provider: "OpenAI", model: "Other" })
 })
 
 test.each([
@@ -125,15 +134,19 @@ test("a peer group with provider and model duplicates needs both qualifiers", ()
     ),
   )
 
-  expect(label(labels, "a", "v1")).toEqual({ provider: "a", model: "GPT (v1)" })
-  expect(label(labels, "a", "v2")).toEqual({ provider: "a", model: "GPT (v2)" })
-  expect(label(labels, "b", "m")).toEqual({ provider: "b", model: "GPT" })
+  expect(label(labels, "a", "v1")).toEqual({ providerID: "a", provider: "a", model: "GPT (v1)" })
+  expect(label(labels, "a", "v2")).toEqual({ providerID: "a", provider: "a", model: "GPT (v2)" })
+  expect(label(labels, "b", "m")).toEqual({ providerID: "b", provider: "b", model: "GPT" })
 })
 
 test("drops the (latest) marker and keeps provider names verbatim", () => {
   const all = catalog(provider("custom", "  Custom / Proxy  ", { models: [["m", "GPT (latest)"]] }))
 
-  expect(label(composerModelLabels(all), "custom", "m")).toEqual({ provider: "  Custom / Proxy  ", model: "GPT" })
+  expect(label(composerModelLabels(all), "custom", "m")).toEqual({
+    providerID: "custom",
+    provider: "  Custom / Proxy  ",
+    model: "GPT",
+  })
 })
 
 test("tuple keys keep slash-containing provider and model identities separate", () => {
@@ -146,6 +159,14 @@ test("tuple keys keep slash-containing provider and model identities separate", 
 
   expect(composerModelLabelKey("company", "openai/gpt")).toBe('["company","openai/gpt"]')
   expect(labels.size).toBe(2)
-  expect(label(labels, "company", "openai/gpt")).toEqual({ provider: "Company", model: "First model" })
-  expect(label(labels, "company/openai", "gpt")).toEqual({ provider: "Other", model: "Second model" })
+  expect(label(labels, "company", "openai/gpt")).toEqual({
+    providerID: "company",
+    provider: "Company",
+    model: "First model",
+  })
+  expect(label(labels, "company/openai", "gpt")).toEqual({
+    providerID: "company/openai",
+    provider: "Other",
+    model: "Second model",
+  })
 })

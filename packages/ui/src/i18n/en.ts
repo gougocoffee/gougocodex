@@ -361,6 +361,7 @@ const source = {
   "ui.message.duration.hoursMinutes": "{{hours}}h {{minutes}}m",
   "ui.message.tokensPerSecond": "{{value}} tok/s",
   "ui.message.interrupted": "Interrupted",
+  "ui.message.timestamp.yesterday": "Yesterday {{time}}",
   "ui.message.modelVariant": "{{model}} ({{variant}})",
   "ui.message.time.justNow": "Just now",
   "ui.message.time.minutesAgo": "{{count}}m ago",

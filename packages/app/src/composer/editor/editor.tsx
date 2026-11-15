@@ -92,6 +92,7 @@ export type ComposerEditorProps = {
   borderUnderlay?: boolean
   class?: string
   modelControl?: JSX.Element
+  permissionControl?: JSX.Element
   modelControlsVisible?: boolean
   attachKeybind?: string[]
   attachShortcut?: string
@@ -483,16 +484,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
             style={buttons()}
           >
             <div ref={controlsContent} class="flex h-full w-max min-w-full items-center gap-0.5">
-              <Show when={view.agent} keyed>
-                {(control) => (
-                  <ComposerEditorConfiguredSelect
-                    fitMenuToOptions
-                    title={i18n.t("ui.promptInput.chooseAgent")}
-                    keybind={["Mod", "."]}
-                    control={control}
-                  />
-                )}
-              </Show>
+              <Show when={props.permissionControl}>{props.permissionControl}</Show>
               <Show when={props.modelControlsVisible ?? true}>
                 {props.modelControl}
                 <Show when={view.variant} keyed>

@@ -188,7 +188,7 @@ const icons = {
   },
   "window-analytics": {
     viewBox: "0 0 16 16",
-    body: `<path d="M14.5 9.8333V13.5H1.5V2.5H7.1667M9.5 2.5V7.5H14.5V2.5H9.5Z" stroke="currentColor" stroke-miterlimit="10" stroke-linecap="square"/>`,
+    body: `<path d="M14.5 9.5V12A2.5 2.5 0 0 1 12 14.5H4A2.5 2.5 0 0 1 1.5 12V4A2.5 2.5 0 0 1 4 1.5H7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><rect x="9.5" y="1.5" width="5" height="5" rx="1.6" stroke="currentColor" stroke-width="1.3"/>`,
   },
   "graduation-cap": {
     viewBox: "0 0 16 16",
@@ -212,7 +212,7 @@ const icons = {
   },
   "outline-copy": {
     viewBox: "0 0 16 16",
-    body: `<path d="M9.5 3.5V1.5H1.5V10.5H4.5M6.5 14.5V5.5H14.5V14.5H6.5Z" stroke="currentColor"/>`,
+    body: `<path d="M9.5 3.5A2 2 0 0 0 7.5 1.5H3.5A2 2 0 0 0 1.5 3.5V8.5A2 2 0 0 0 3.5 10.5H4.5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><rect x="6.5" y="5.5" width="8" height="9" rx="2" stroke="currentColor"/>`,
   },
   "outline-quote": {
     viewBox: "0 0 16 16",
@@ -316,7 +316,7 @@ const icons = {
   },
   comment: {
     viewBox: "0 0 16 16",
-    body: `<path d="M13.5 2.5H2.5V13.5H4.5L5.5 11.5H13.5V2.5Z" stroke="currentColor" stroke-miterlimit="10" stroke-linecap="square"/>`,
+    body: `<path d="M3 10.4V5.6A2.9 2.9 0 0 1 5.9 2.7H10.1A2.9 2.9 0 0 1 13 5.6V8.2A2.9 2.9 0 0 1 10.1 11.1H6.6L4.1 13C3.7 13.3 3 13.02 3 12.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>`,
   },
   archive: {
     viewBox: "0 0 16 16",

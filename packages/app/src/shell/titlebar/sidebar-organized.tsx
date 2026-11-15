@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, For, Show, onCleanup, type Acce
 import { createStore } from "solid-js/store"
 import { useQueries, useQueryClient } from "@tanstack/solid-query"
 import type { SessionInfo } from "@opencode/client/promise"
+import { ActivityRing } from "@opencode/ui/activity-ring"
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
@@ -18,6 +19,7 @@ import { usePlatform } from "@/runtime/platform/platform"
 import { ServerConnection, useServers } from "@/runtime/server/registry"
 import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
 import { getRelativeTime } from "@/shell/time"
+import { useSessionTabAvatarState } from "@/shell/layout/project-avatar-state"
 import { useLayout } from "@/shell/state/layout"
 import { showToast } from "@/shell/notifications/toast"
 import { createProjectSessionActions } from "@/shell/tabs/project-sessions"
@@ -342,6 +344,13 @@ export function SidebarOrganized(props: {
   function TaskRow(row: { session: SessionInfo }) {
     const session = () => row.session
 
+    const status = useSessionTabAvatarState(
+      server,
+      () => row.session.id,
+      () => true,
+      () => row.session,
+    )
+
     const [menu, setMenu] = createStore({ open: false })
 
     // LocalProject only needs a worktree; the session's directory is enough for the menu's folder actions.
@@ -370,6 +379,9 @@ export function SidebarOrganized(props: {
           <span class="min-w-0 flex-1 truncate" dir="auto">
             {sessionLabel(session())}
           </span>
+          <Show when={status.loading()}>
+            <ActivityRing class="shrink-0" />
+          </Show>
           <span class="shrink-0 text-[11px] leading-[var(--line-height-compact)] text-v2-text-text-faint">
             {taskTime(session())}
           </span>

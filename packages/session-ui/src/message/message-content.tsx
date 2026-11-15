@@ -1213,6 +1213,19 @@ export function AssistantTextContent(props: {
     })
   })
 
+  const timestamp = createMemo(() => {
+    const date = new Date(props.message.time.created)
+    const locale = i18n.locale()
+    const time = new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(date)
+    const midnight = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime()
+    const days = Math.round((midnight(new Date()) - midnight(date)) / 86_400_000)
+
+    if (days <= 0) return time
+    if (days === 1) return i18n.t("ui.message.timestamp.yesterday", { time })
+
+    return `${new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date)} ${time}`
+  })
+
   const copy = createCopyFeedback()
 
   return (
@@ -1253,13 +1266,23 @@ export function AssistantTextContent(props: {
           onClick={() => copy.copy(props.text)}
           aria-label={copy.copied() ? i18n.t("ui.message.copied") : i18n.t("ui.message.copyResponse")}
         />
-        <Show when={meta().length > 0}>
+        <Show when={meta().length > 0 || speed() || timestamp()}>
           <span data-slot="text-part-meta">
             <MetaItems items={meta()} slot="text-part" />
             <Show when={speed()}>
               {(label) => (
                 <span data-slot="text-part-meta-speed">
                   <span aria-hidden="true">{"\u00B7"}</span>
+                  <span dir="auto">{label()}</span>
+                </span>
+              )}
+            </Show>
+            <Show when={timestamp()}>
+              {(label) => (
+                <span data-slot="text-part-meta-time">
+                  <Show when={meta().length > 0 || speed()}>
+                    <span aria-hidden="true">{"\u00B7"}</span>
+                  </Show>
                   <span dir="auto">{label()}</span>
                 </span>
               )}

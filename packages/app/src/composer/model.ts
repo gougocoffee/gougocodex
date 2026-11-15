@@ -8,6 +8,7 @@ import type { ComposerSuggestion } from "./types"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 import { selectionFromLines, type SelectedLineRange, useFile } from "@/workspaces/files/model"
 import { useComments } from "@/composer/comments"
+import { projectSettingsKey, useSettings } from "@/settings/model"
 import { useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
 import { usePluginHost } from "@/runtime/plugin/host"
@@ -36,8 +37,15 @@ import { composerSubmitView } from "./machine"
 import { useAttachmentDestination } from "./attachments/destination"
 import { parseClientSlashCommand } from "./client-slash-command"
 
+export type ComposerPermission = {
+  readonly enabled: () => boolean
+  readonly projectScoped: () => boolean
+  readonly set: (value: boolean) => void
+}
+
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
+  readonly permission?: ComposerPermission
 }
 
 const sendFailedTitle = {
@@ -64,6 +72,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   const platform = usePlatform()
   const serverSDK = useServerSDK()
   const tabs = useTabs()
+  const settings = useSettings()
   const prompt = adapter.state
   // Editor actions write the captured store directly, rather than going through the context methods.
   createEffect(
@@ -83,6 +92,35 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
 
   const mode = () => prompt.mode.current()
   const history = createComposerHistory()
+
+  // The project this composer's permission applies to; a draft before its session exists uses the open workspace.
+  const permissionProject = () =>
+    projectSettingsKey(
+      serverSDK.scope,
+      adapter.kind === "active-session"
+        ? server.ctx.data.session.get(adapter.session().id)?.projectID
+        : sdk().current?.project.id,
+    )
+
+  const permission: ComposerPermission = {
+    enabled: () => settings.permissions.autoApproves(permissionProject()),
+    projectScoped: () => !!permissionProject(),
+    set(value) {
+      const project = permissionProject()
+
+      if (!project) {
+        settings.permissions.setAutoApproveDefault(value)
+
+        return
+      }
+
+      // Matching the default drops the override, so the project follows the setting again.
+      settings.permissions.setAutoApproveOverride(
+        project,
+        value === settings.permissions.autoApproveDefault() ? undefined : value,
+      )
+    },
+  }
 
   const recent = createMemo(() => {
     const all = plugins.files.opened()
@@ -578,6 +616,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   })
 
   Object.defineProperty(controller, "model", { get: () => adapter.controls().model })
+  Object.defineProperty(controller, "permission", { get: () => permission })
 
   command.register("composer-editor", () => [
     {
