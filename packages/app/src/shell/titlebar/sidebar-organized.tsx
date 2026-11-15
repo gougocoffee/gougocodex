@@ -1,9 +1,7 @@
 import { Schema } from "effect"
-import type { SessionInfo } from "@opencode/client/promise"
-import { createEffect, createMemo, For, Show, onCleanup, untrack, type Accessor, type JSX } from "solid-js"
+import { createEffect, createMemo, Show, onCleanup, untrack, type Accessor, type JSX } from "solid-js"
 import { Key } from "@solid-primitives/keyed"
 import { createStore } from "solid-js/store"
-import { useQuery } from "@tanstack/solid-query"
 import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
 import { isSortable, useSortable } from "@dnd-kit/solid/sortable"
 import { Accessibility, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
@@ -15,8 +13,10 @@ import { ScrollView } from "@opencode/ui/scroll-view"
 import { displayName } from "@opencode/ui/project-avatar"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { createProjectActions } from "@/home/projects/actions"
-import { homeSessionsQuery } from "@/home/sessions/queries"
+import { ProjectDeleteDialog } from "@/home/projects/delete-dialog"
 import { ProjectMenuItems } from "@/home/projects/menu"
+import { usePlatform } from "@/runtime/platform/platform"
+import { showToast } from "@/shell/notifications/toast"
 import { arrayMove } from "@/runtime/array-move"
 import { useLanguage } from "@/runtime/i18n/language"
 import { Persistence } from "@/runtime/persistence/schema"
@@ -26,11 +26,7 @@ import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
 import type { Project } from "@/runtime/server/types"
 import { useCommand } from "@/shell/commands/command"
 import { useLayout } from "@/shell/state/layout"
-import { compareSessionTime } from "@/shell/layout/helpers"
-import { createProjectSessionActions } from "@/shell/tabs/project-sessions"
 import { useTabs, type Tab } from "@/shell/tabs/tabs"
-import { pathKey } from "@/workspaces/path-key"
-import { sessionLabel } from "@/session/title"
 import "./tab-nav.css"
 import { isSidebarSessionActivity } from "./sidebar-sessions"
 import { CreateProjectDialog } from "./create-project-dialog"
@@ -274,16 +270,6 @@ function ProjectList(props: {
 
   const ctx = useServerCtx(connection)
 
-  const sessionsQuery = useQuery(() => homeSessionsQuery(connection(), ctx()))
-
-  // The shared index lists every project's chats; sessions this window already loaded stay live on top of it.
-  const sessions = createMemo(() => {
-    const indexed = sessionsQuery.data?.() ?? []
-    const live = ctx()?.data.session.list() ?? []
-
-    return [...new Map([...indexed, ...live].map((session) => [session.id, session] as const)).values()]
-  })
-
   const server = () => {
     const conn = connection()
 
@@ -351,10 +337,15 @@ function ProjectList(props: {
                   project={project()}
                   server={conn()}
                   actions={projectActions}
-                  sessions={sessions()}
                   index={index()}
-                  expanded={props.state.expanded[project().id] !== false}
-                  onToggleExpanded={() => props.onToggleExpanded(project().id)}
+                  onPin={() => {
+                    const ids = projects().map((entry) => entry.id)
+
+                    props.onReorder(ServerConnection.key(conn()), [
+                      project().id,
+                      ...ids.filter((id) => id !== project().id),
+                    ])
+                  }}
                 />
               )}
             </Key>
@@ -369,14 +360,14 @@ function ProjectRow(props: {
   project: Project
   server: ServerConnection.Any
   actions: ReturnType<typeof createProjectActions>
-  sessions: SessionInfo[]
   index: number
-  expanded: boolean
-  onToggleExpanded: () => void
+  onPin: () => void
 }) {
   const language = useLanguage()
 
-  const sessionActions = createProjectSessionActions()
+  const platform = usePlatform()
+
+  const dialog = useDialog()
 
   const [menu, setMenu] = createStore({ open: false })
 
@@ -389,20 +380,7 @@ function ProjectRow(props: {
     },
   })
 
-  // Codex nests each project's chats under its row, so the folder shows what is inside it.
-  const chats = createMemo(() => {
-    const directories = new Set([props.project.worktree, ...(props.project.sandboxes ?? [])].map(pathKey))
-
-    return props.sessions
-      .filter(
-        (session) =>
-          !session.time.archived &&
-          !session.parentID &&
-          directories.has(pathKey(session.location.directory)),
-      )
-      .toSorted(compareSessionTime)
-      .slice(0, 8)
-  })
+  const hide = () => props.actions.hide(props.server, props.project)
 
   return (
     <div class="relative flex shrink-0 flex-col">
@@ -421,21 +399,7 @@ function ProjectRow(props: {
       >
         <button
           type="button"
-          class="grid size-5 shrink-0 place-items-center rounded-[4px] text-v2-icon-icon-muted transition-colors hover:text-v2-text-text-base focus-visible:outline-none"
-          aria-expanded={props.expanded}
-          aria-label={displayName(props.project)}
-          onClick={props.onToggleExpanded}
-        >
-          <Icon
-            name="fill-triangle-down"
-            size="small"
-            class="transition-transform duration-150"
-            classList={{ "-rotate-90 rtl:rotate-90": !props.expanded }}
-          />
-        </button>
-        <button
-          type="button"
-          class="flex h-full min-w-0 flex-1 shrink-0 cursor-default items-center gap-2 rounded-[8px] bg-transparent pe-2 text-start text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-base transition-colors duration-[120ms] ease-in-out focus-visible:outline-none"
+          class="flex h-full min-w-0 flex-1 shrink-0 cursor-default items-center gap-2 rounded-[8px] bg-transparent pe-2 ps-2 text-start text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-base transition-colors duration-[120ms] ease-in-out focus-visible:outline-none"
           onClick={() => props.actions.openNewSession(props.server, props.project.worktree)}
         >
           <Icon name="folder" size="small" class="shrink-0 text-v2-icon-icon-muted" />
@@ -471,12 +435,28 @@ function ProjectRow(props: {
                   canImportSession={props.actions.canImportSession}
                   importingSession={props.actions.importingSession()}
                   canRevealProject={props.actions.canReveal}
-                  onOpenProjectNewSession={props.actions.openNewSession}
-                  onImportSession={props.actions.importSession}
+                  onPinProject={props.onPin}
+                  onShareProject={(_server, project) => {
+                    void Promise.try(() => platform.writeClipboardText?.(project.worktree)).then(() =>
+                      showToast({ title: language.t("project.menu.share.done") }),
+                    )
+                  }}
+                  onOpenProjectWindow={() => {
+                    void platform.runDesktopMenuAction?.("window.new")
+                  }}
                   onEditProject={props.actions.edit}
                   onRevealProject={props.actions.reveal}
-                  onClearNotifications={props.actions.clearNotifications}
-                  onHideProject={props.actions.hide}
+                  onArchiveProject={hide}
+                  onDeleteProject={() =>
+                    dialog.show(() => (
+                      <ProjectDeleteDialog
+                        onConfirm={() => {
+                          hide()
+                          showToast({ title: language.t("project.delete.done") })
+                        }}
+                      />
+                    ))
+                  }
                 />
               </Menu.Content>
             </Menu.Portal>
@@ -490,26 +470,6 @@ function ProjectRow(props: {
           />
         </span>
       </div>
-      <Show when={props.expanded}>
-        <div class="flex min-w-0 flex-col">
-          <For each={chats()}>
-            {(session) => (
-              <button
-                type="button"
-                class="flex h-7 w-full min-w-0 items-center rounded-[8px] pe-2 ps-8 text-start text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-base transition-colors hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none"
-                onClick={() => sessionActions.openProjectSession(props.server, props.project.worktree, session)}
-              >
-                <span class="min-w-0 truncate">{sessionLabel(session)}</span>
-              </button>
-            )}
-          </For>
-          <Show when={chats().length === 0}>
-            <div class="flex h-7 items-center pe-2 ps-8 text-[13px] leading-[var(--line-height-compact)] text-v2-text-text-faint">
-              {language.t("sidebar.organize.empty")}
-            </div>
-          </Show>
-        </div>
-      </Show>
     </div>
   )
 }
