@@ -1,4 +1,4 @@
-<h1 align="center">gougocodex</h1>
+<h1 align="center">gougo codex</h1>
 
 <p align="center">基于 opencode 的私有分支 —— 界面按 Codex / 豆包 WorkBuddy 风格重做，全中文，桌面版开箱可用。</p>
 
