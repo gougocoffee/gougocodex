@@ -777,3 +777,174 @@ body:has(.model-dialog) [data-component="dialog-overlay"] {
   font-weight: 500;
 }
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Hero 狗头的「思考」气泡（简笔画版）
+   ─────────────────────────────────────────────────────────────────────────────
+   悬停狗头时从头顶冒出一个手绘云朵气泡：一圈抖动的粗线，下方三个小圆圈朝向
+   狗头递减。气泡里不停随机蹦出代码/数学碎片（</>、<?php、std::、√、&&、¥…），
+   每个碎片自己弹进来、淡出去。气泡整体 pointer-events: none，不挡点击。 */
+.hero-dog {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.hero-think {
+  position: absolute;
+  left: calc(50% + 34px);
+  bottom: calc(100% + 4px);
+  width: 176px;
+  height: 136px;
+  transform: translateX(-50%) scale(0.18);
+  transform-origin: 34% 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.12s ease-out,
+    transform 0.34s cubic-bezier(0.22, 1.5, 0.45, 1);
+}
+
+/* 悬停时像吹气球一样从小长到大 */
+.hero-dog:hover .hero-think,
+.hero-dog:focus-within .hero-think {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* 进场后整体缓慢上下漂浮，苹果那种慢起慢停 */
+.hero-think-body {
+  position: absolute;
+  inset: 0;
+  animation: hero-float 4.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.hero-think-cloud {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.hero-think-stroke {
+  stroke: #1e1e1e;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: #fff;
+}
+
+.hero-think-dot {
+  fill: #fff;
+  stroke: #1e1e1e;
+  stroke-width: 1.7;
+}
+
+/* 碎片的活动范围：云朵内部 */
+.hero-think-blip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  transform-origin: 50% 50%;
+  font-family: "JetBrainsMono Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1;
+  color: #2b2b2b;
+  white-space: nowrap;
+  animation: hero-blip 1.15s cubic-bezier(0.22, 0.9, 0.35, 1) both;
+}
+
+@keyframes hero-blip {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 2px)) scale(0.5) rotate(var(--blip-rot, 0deg));
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.08) rotate(var(--blip-rot, 0deg));
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(var(--blip-rot, 0deg));
+  }
+  78% {
+    opacity: 0.9;
+    transform: translate(-50%, calc(-50% - 1px)) scale(1) rotate(var(--blip-rot, 0deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 5px)) scale(0.92) rotate(var(--blip-rot, 0deg));
+  }
+}
+
+[data-theme="dark"] .hero-think-stroke {
+  stroke: #e6e6e6;
+  fill: #1b1b1b;
+}
+
+[data-theme="dark"] .hero-think-dot {
+  fill: #1b1b1b;
+  stroke: #e6e6e6;
+}
+
+[data-theme="dark"] .hero-think-blip {
+  color: #b9b9b9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-think-body {
+    animation: none;
+  }
+  .hero-think {
+    transition: opacity 0.15s linear;
+    scale: 1;
+    rotate: 0deg;
+  }
+  .hero-think-blip {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+/* 狗头本体 + 代码画的眼睛 */
+.hero-dog-mark {
+  position: relative;
+  display: inline-block;
+}
+
+.hero-dog-img {
+  display: block;
+  height: 100%;
+}
+
+.hero-dog-eyes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.hero-eye {
+  fill: #0c0c0c;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleY(1);
+  transition: transform 80ms ease-out;
+}
+
+/* 闭眼：眼珠压成一条线 */
+.hero-dog-eyes--shut .hero-eye {
+  transform: scaleY(0.06);
+}
