@@ -209,7 +209,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
             createEffect(() => {
               if (
                 settings.appearance.tabLayout() === "vertical" &&
-                (settings.general.sidebarOrganize() === "projects" || settings.general.sidebarOrganize() === "customize") &&
+                (settings.general.sidebarOrganize() === "consolidated" || settings.general.sidebarOrganize() === "customize") &&
                 !mobile()
               )
                 return
@@ -832,7 +832,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 <Match when={settings.appearance.tabLayout() === "inbox"}>
                                   <SidebarInbox />
                                 </Match>
-                                <Match when={settings.general.sidebarOrganize() === "projects"}>
+                                <Match when={settings.general.sidebarOrganize() === "consolidated"}>
                                   <SidebarOrganized currentTab={currentTab()}>{verticalTabStrip}</SidebarOrganized>
                                 </Match>
                                 <Match when={settings.general.sidebarOrganize() === "customize"}>

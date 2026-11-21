@@ -12,7 +12,6 @@ export default {
   "compact.limitNote": "{{limit}} context.",
   "compact.saveFailed": "Failed to save auto-compact setting",
   "usage.toggle": "Toggle session context",
-  "systemPrompt.title": "System Prompt",
   "rawMessages.title": "Raw messages",
   "export.session": "Export session",
   "stats.session": "Session",

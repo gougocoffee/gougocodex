@@ -12,6 +12,7 @@ import {
   useCurrentRoute,
   usePluginServers,
   useTabs,
+  useWindowTabActivity,
   type LayoutRoute,
   type Platform,
 } from "@opencode/app/desktop"
@@ -22,6 +23,7 @@ import type { ElectronAPI } from "./api-types"
 import { DesktopFirstLaunchOnboarding } from "./onboarding"
 import { createDesktopPlatform } from "./platform"
 import { bindDesktopMenu } from "./platform/menu"
+import { selectTaskbarProgressMode } from "../shared/ipc-contract"
 import { createSidecarResolver, localServerStartupError, sidecarHttp } from "./startup/initialization"
 import { preloadStoredLocale } from "./startup/locale"
 import {
@@ -271,10 +273,11 @@ function DesktopStartupReady(props: { dispatch: (event: StartupEvent) => void })
   return null
 }
 
-function DesktopEffects(props: { api: ElectronAPI; os: string | undefined }) {
+function DesktopEffects(props: { api: ElectronAPI; os: "macos" | "windows" | "linux" | undefined }) {
   const command = useCommand()
   onCleanup(bindDesktopMenu((id) => command.trigger(id)))
   const theme = useTheme()
+  const activity = useWindowTabActivity()
 
   // The macOS window is a vibrancy panel, so the sidebar rail lets the material show while every other surface paints.
   if (props.os === "macos") document.documentElement.dataset.vibrancy = "sidebar"
@@ -285,6 +288,16 @@ function DesktopEffects(props: { api: ElectronAPI; os: string | undefined }) {
     const background = getComputedStyle(document.documentElement).getPropertyValue("--background-base").trim()
 
     if (background) void props.api.setBackgroundColor(background)
+  })
+
+  createEffect(() => {
+    if (props.os !== "windows") return
+    const mode = selectTaskbarProgressMode(activity())
+    void props.api.setTaskbarProgress(mode)
+  })
+
+  onCleanup(() => {
+    if (props.os === "windows") void props.api.setTaskbarProgress("none")
   })
 
   return null
