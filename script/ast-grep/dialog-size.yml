@@ -4,6 +4,8 @@ severity: error
 message: Choose a Dialog size preset instead of sizing its container or content here.
 ignores:
   - packages/ui/src/overlays/dialog/dialog.css
+  # The gougocodex fork's theme layer sizes its own model picker shell deliberately; it is not a Dialog instance.
+  - packages/app/src/codex-theme.css
 rule:
   kind: declaration
   has:
