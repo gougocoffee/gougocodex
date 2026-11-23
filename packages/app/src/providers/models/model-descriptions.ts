@@ -82,6 +82,11 @@ const ENTRIES: Entry[] = [
     price: "¥9 / ¥27 每百万 token（闲时半价）",
   },
   {
+    keys: ["网页版", "deepseek-web"],
+    description: "免费使用：通过本机桥接调用 DeepSeek 网页版，不消耗 API 额度，有限速保护。",
+    ratio: "0×",
+  },
+  {
     keys: ["deepseek"],
     description: "深度求索（DeepSeek）出品，编码、数学与通用推理表现均衡，Agent 任务与长上下文能力强。",
   },

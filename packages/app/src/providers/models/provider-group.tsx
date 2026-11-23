@@ -73,7 +73,8 @@ export function ProviderModelIcon(props: { provider: ModelProvider; modelName?: 
     [
       props.provider.canonical,
       props.provider.canonical?.replace(/-token-plan$/, ""),
-      props.provider.id.replace(/^console-/, ""),
+      // 自定义的 deepseek-web provider 走 DeepSeek 自家图标，而不是 managed provider 的方块占位图。
+      props.provider.id.replace(/^console-/, "").replace(/-web$/, ""),
     ].find((id): id is IconName => !!id && id !== "synthetic" && iconNames.includes(id as IconName))
 
   return (
